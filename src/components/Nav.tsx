@@ -1,15 +1,31 @@
-import { ConnectButton, useConnection } from "@arweave-wallet-kit/react"
+import { ConnectButton, useConnection } from "@arweave-wallet-kit/react";
 import { SearchIcon } from "@iconicicons/react";
-import { styled } from "@linaria/react"
+import { useEffect, useState } from "react";
+import { isAddress } from "../utils/format";
+import { styled } from "@linaria/react";
+import { useLocation } from "wouter";
 
 export default function Nav() {
   const { connect, connected } = useConnection();
+
+  const [searchVal, setSearchVal] = useState("");
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isAddress(searchVal)) return;
+    setLocation(`#/process/${searchVal}`);
+    setSearchVal("");
+  }, [searchVal]);
 
   return (
     <Wrapper>
       <SearchWrapper>
         <Search />
-        <SearchInput placeholder="Search for a process..." />
+        <SearchInput
+          onChange={(e) => setSearchVal(e.target.value)}
+          value={searchVal}
+          placeholder="Search for a process..."
+        />
       </SearchWrapper>
       {(connected && (
         <ConnectButton showProfilePicture={false} />

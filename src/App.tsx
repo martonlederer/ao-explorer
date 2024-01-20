@@ -52,17 +52,17 @@ function App() {
       }}
     >
       <BgBlur />
-      <Nav />
-      <Main>
-        <Router hook={useHashLocation} matcher={customMatcher}>
+      <Router hook={useHashLocation} matcher={customMatcher}>
+        <Nav />
+        <Main>
           <Switch>
             <Route path="/" component={Home} />
             <Route path="/process/:id">
               {(props) => <Process id={props.id} />}
             </Route>
           </Switch>
-        </Router>
-      </Main>
+        </Main>
+      </Router>
     </ArweaveWalletKit>
   );
 }
