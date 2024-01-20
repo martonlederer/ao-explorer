@@ -1,11 +1,16 @@
+import BrowserWalletStrategy from "@arweave-wallet-kit/browser-wallet-strategy";
+import ArConnectStrategy from "@arweave-wallet-kit/arconnect-strategy";
+import WebWalletStrategy from "@arweave-wallet-kit/webwallet-strategy";
+import { ArweaveWalletKit } from "@arweave-wallet-kit/react";
 import { pathToRegexp, Key } from "path-to-regexp";
 import { Router, Route, Switch } from "wouter";
 import makeCachedMatcher from "wouter/matcher";
 import useHashLocation from "./utils/hash";
 import { styled } from "@linaria/react";
+import Process from "./pages/process";
 import { css } from "@linaria/core";
 import Nav from "./components/Nav";
-import Home from "./pages/Home";
+import Home from "./pages";
 
 const convertPathToRegexp = (path: string) => {
   let keys: Key[] = [];
@@ -18,17 +23,47 @@ const customMatcher = makeCachedMatcher(convertPathToRegexp);
 
 function App() {
   return (
-    <>
+    <ArweaveWalletKit
+      theme={{
+        displayTheme: "dark",
+        accent: {
+          r: 48,
+          g: 175,
+          b: 46
+        }
+      }}
+      config={{
+        strategies: [
+          new ArConnectStrategy(),
+          new WebWalletStrategy(),
+          new BrowserWalletStrategy()
+        ],
+        permissions: ["ACCESS_ADDRESS", "ACCESS_ALL_ADDRESSES"],
+        ensurePermissions: true,
+        appInfo: {
+          name: "ao Explorer",
+          logo: "https://arweave.net/tQUcL4wlNj_NED2VjUGUhfCTJ6pDN9P0e3CbnHo3vUE"
+        },
+        gatewayConfig: {
+          host: "arweave.net",
+          port: 443,
+          protocol: "https"
+        }
+      }}
+    >
       <BgBlur />
       <Nav />
       <Main>
         <Router hook={useHashLocation} matcher={customMatcher}>
           <Switch>
             <Route path="/" component={Home} />
+            <Route path="/process/:id">
+              {(props) => <Process id={props.id} />}
+            </Route>
           </Switch>
         </Router>
       </Main>
-    </>
+    </ArweaveWalletKit>
   );
 }
 

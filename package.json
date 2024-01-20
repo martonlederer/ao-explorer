@@ -9,11 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@arweave-wallet-kit/arconnect-strategy": "^0.0.1-beta.4",
+    "@arweave-wallet-kit/browser-wallet-strategy": "^0.0.1-beta.4",
+    "@arweave-wallet-kit/core": "^0.0.1-beta.4",
+    "@arweave-wallet-kit/react": "^0.0.1-beta.4",
+    "@arweave-wallet-kit/webwallet-strategy": "^0.0.1-beta.4",
     "@iconicicons/react": "^1.5.1",
     "@linaria/babel-preset": "^4.4.5",
     "@linaria/core": "^4.2.10",
     "@linaria/react": "^4.3.8",
     "arweave-graphql": "^0.0.5",
+    "arweave-wallet-connector": "^1.0.2",
     "path-to-regexp": "^6.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

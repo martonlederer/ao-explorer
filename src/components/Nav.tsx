@@ -1,16 +1,23 @@
+import { ConnectButton, useConnection } from "@arweave-wallet-kit/react"
 import { SearchIcon } from "@iconicicons/react";
 import { styled } from "@linaria/react"
 
 export default function Nav() {
+  const { connect, connected } = useConnection();
+
   return (
     <Wrapper>
       <SearchWrapper>
         <Search />
         <SearchInput placeholder="Search for a process..." />
       </SearchWrapper>
-      <Button>
-        Connect
-      </Button>
+      {(connected && (
+        <ConnectButton showProfilePicture={false} />
+      )) || (
+        <Button onClick={connect}>
+          Connect
+        </Button>
+      )}
     </Wrapper>
   );
 }

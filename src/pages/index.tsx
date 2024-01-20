@@ -1,9 +1,10 @@
 import InfiniteScroll from "react-infinite-scroll-component";
-import { styled } from "@linaria/react";
-import gql from "arweave-graphql";
+import { formatAddress } from "../utils/format";
 import { useEffect, useState } from "react";
-import { formatAddress } from "../utils/format"
-import { Link } from "wouter"
+import { styled } from "@linaria/react";
+import Table from "../components/Table";
+import gql from "arweave-graphql";
+import { Link } from "wouter";
 
 export default function Home() {
   const [processes, setProcesses] = useState<Process[]>([]);
@@ -41,15 +42,15 @@ export default function Home() {
       <InfiniteScroll
         dataLength={processes.length}
         next={fetchProcesses}
-        hasMore={false}
-        loader={<h4>Loading...</h4>}
+        hasMore={hasNextPage}
+        loader={<LoadingStatus>Loading...</LoadingStatus>}
         endMessage={
           <LoadingStatus>
             You've reached the end...
           </LoadingStatus>
         }
       >
-        <Transactions>
+        <Table>
           <tr>
             <th></th>
             <th>Process ID</th>
@@ -74,7 +75,7 @@ export default function Home() {
               <td>{formatAddress(process.scheduler, 7)}</td>
             </tr>
           ))}
-        </Transactions>
+        </Table>
       </InfiniteScroll>
     </Wrapper>
   )
@@ -82,37 +83,6 @@ export default function Home() {
 
 const Wrapper = styled.section`
   padding: 2rem 10vw;
-`;
-
-const Transactions = styled.table`
-  border-collapse: collapse;
-  width: 100%;
-
-  td, th {
-    border-left: none;
-    border-right: none;
-    text-align: left;
-    padding: 1.05rem .7rem;
-    font-weight: 400;
-  }
-
-  th {
-    font-weight: 500;
-  }
-
-  td {
-    color: rgba(255, 255, 255, .85);
-  }
-
-  tr:nth-child(even) {
-    background-color: rgba(255, 255, 255, .05);
-  }
-
-  a {
-    color: inherit;
-    text-decoration: none;
-    display: block;
-  }
 `;
 
 const LoadingStatus = styled.p`
