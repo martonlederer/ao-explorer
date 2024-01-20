@@ -1,8 +1,12 @@
 import arGql, { TransactionEdge } from "arweave-graphql"
 import { useEffect, useMemo, useState } from "react";
+import relativeTime from "dayjs/plugin/relativeTime";
 import { formatAddress } from "../utils/format";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
+import dayjs from "dayjs";
+
+dayjs.extend(relativeTime);
 
 export default function Process({ id }: Props) {
   const [initTx, setInitTx] = useState<TransactionEdge | "loading">("loading");
@@ -31,7 +35,7 @@ export default function Process({ id }: Props) {
     return tagRecord;
   }, [initTx]);
 
-  const [schedulerURL, setSchedulerURL] = useState<string>();
+  const [schedulerURL, setSchedulerURL] = useState<URL>();
 
   useEffect(() => {
     (async () => {
@@ -48,9 +52,23 @@ export default function Process({ id }: Props) {
       const url = res?.transactions?.edges?.[0]?.node?.tags?.find((t) => t.name === "Url")?.value;
       if (!url) return;
 
-      setSchedulerURL(new URL(url).host);
+      setSchedulerURL(new URL(url));
     })();
   }, [tags, initTx]);
+
+  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing">("incoming");
+  const [incoming, setIncoming] = useState([]);
+  const [hasMoreInteractions, setHasMoreInteractions] = useState(true);
+  const [outgoing, setOutgoing] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      const scheduler = schedulerURL?.toString() || "https://ao-su-1.onrender.com/";
+      const incomingRes = await (await fetch(`${scheduler}${id}`)).json();
+
+      setIncoming(incomingRes.edges);
+    })();
+  }, [schedulerURL, id]);
 
   if (!initTx || initTx == "loading") {
     return (
@@ -93,13 +111,62 @@ export default function Process({ id }: Props) {
           <tr>
             <td>Scheduler</td>
             <td>
-              {schedulerURL}
+              {schedulerURL?.host || ""}
               {" "}
               ({formatAddress(tags.Scheduler, 7)})
             </td>
           </tr>
         </Table>
       </Tables>
+      <Title>
+        Interactions
+      </Title>
+      <InteractionsMenu>
+        <InteractionsMenuItem
+          active={interactionsMode === "incoming"}
+          onClick={() => setInteractionsMode("incoming")}
+        >
+          Incoming
+        </InteractionsMenuItem>
+        <InteractionsMenuItem
+          active={interactionsMode === "outgoing"}
+          onClick={() => setInteractionsMode("outgoing")}
+        >
+          Outgoing
+        </InteractionsMenuItem>
+      </InteractionsMenu>
+      {interactionsMode === "incoming" && (
+        <Table>
+          <tr>
+            <th></th>
+            <th>ID</th>
+            <th>Action</th>
+            <th>From</th>
+            <th>Block</th>
+            <th>Time</th>
+          </tr>
+          {incoming.map((interaction: any, i) => (
+            <tr key={i}>
+              <td></td>
+              <td>
+                {formatAddress(interaction.node.message.id)}
+              </td>
+              <td>
+                {interaction.node.message.tags.find((t: any) => t.name === "Action").value}
+              </td>
+              <td>
+                {formatAddress(interaction.node.owner.address, 8)}
+              </td>
+              <td>
+                {parseInt(interaction.node.block)}
+              </td>
+              <td>
+                {dayjs(interaction.node.timestamp).fromNow()}
+              </td>
+            </tr>
+          ))}
+        </Table>
+      )}
     </Wrapper>
   );
 }
@@ -116,6 +183,13 @@ const ProcessTitle = styled.h1`
   font-weight: 600;
   margin: 0 0 .5rem;
   color: #fff;
+`;
+
+const Title = styled.h2`
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 1em 0 .4em;
 `;
 
 const NotFound = styled.p`
@@ -140,6 +214,25 @@ const Tables = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
+`;
+
+const InteractionsMenu = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, .1);
+  margin-bottom: 1rem;
+`;
+
+const InteractionsMenuItem = styled.p<{ active?: boolean; }>`
+  font-size: .94rem;
+  color: ${props => props.active ? "#04ff00" : "rgba(255, 255, 255, .7)"};
+  padding: .75rem .85rem;
+  margin: 0;
+  cursor: pointer;
+  font-weight: 400;
+  border-bottom: 2px solid ${props => props.active ? "#04ff00" : "transparent"};
+  transition: all .15s ease-in-out;
 `;
 
 interface Props {
