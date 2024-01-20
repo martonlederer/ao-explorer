@@ -9,22 +9,25 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@iconicicons/react": "^1.5.1",
     "@linaria/babel-preset": "^4.4.5",
     "@linaria/core": "^4.2.10",
     "@linaria/react": "^4.3.8",
+    "arweave-graphql": "^0.0.5",
     "path-to-regexp": "^6.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-infinite-scroll-component": "^6.1.0",
     "wouter": "^2.12.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.12",
     "@babel/preset-react": "^7.22.5",
     "@babel/preset-typescript": "^7.22.5",
+    "@linaria/vite": "^4.2.11",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
-    "@linaria/vite": "^4.2.11",
     "typescript": "^5.2.2",
     "vite": "^5.0.8"
   }

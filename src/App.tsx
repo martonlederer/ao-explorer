@@ -4,6 +4,7 @@ import makeCachedMatcher from "wouter/matcher";
 import useHashLocation from "./utils/hash";
 import { styled } from "@linaria/react";
 import { css } from "@linaria/core";
+import Nav from "./components/Nav";
 import Home from "./pages/Home";
 
 const convertPathToRegexp = (path: string) => {
@@ -19,6 +20,7 @@ function App() {
   return (
     <>
       <BgBlur />
+      <Nav />
       <Main>
         <Router hook={useHashLocation} matcher={customMatcher}>
           <Switch>
@@ -74,7 +76,7 @@ const BgBlur = styled.div`
   background-image: url('/bg.png');
   background-size: cover;
   background-repeat: no-repeat;
-  z-index: 1;
+  z-index: -1;
 `;
 
 export default App;
