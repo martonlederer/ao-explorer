@@ -1,8 +1,10 @@
-import arGql, { TransactionEdge } from "arweave-graphql"
+import InfiniteScroll from "react-infinite-scroll-component";
+import arGql, { TransactionEdge } from "arweave-graphql";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { formatAddress } from "../utils/format";
 import { styled } from "@linaria/react";
+import { LoadingStatus } from "./index";
 import Table from "../components/Table";
 import dayjs from "dayjs";
 
@@ -59,7 +61,7 @@ export default function Process({ id }: Props) {
   const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing">("incoming");
   const [incoming, setIncoming] = useState([]);
   const [hasMoreInteractions, setHasMoreInteractions] = useState(true);
-  const [outgoing, setOutgoing] = useState([]);
+  const [outgoing, setOutgoing] = useState<OutgoingInteraction[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -69,6 +71,33 @@ export default function Process({ id }: Props) {
       setIncoming(incomingRes.edges);
     })();
   }, [schedulerURL, id]);
+
+  async function fetchOutgoing() {
+    const res = await arGql("https://arweave.net/graphql").getTransactions({
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] },
+        { name: "From-Process", values: [id] }
+      ],
+      first: 100,
+      after: outgoing[outgoing.length - 1]?.cursor
+    });
+
+    setHasMoreInteractions(res.transactions.pageInfo.hasNextPage);
+    setOutgoing((val) => [
+      ...val,
+      ...res.transactions.edges.map((tx) => ({
+        id: tx.node.id,
+        action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
+        block: tx.node.block?.height || 0,
+        time: (tx.node.block?.timestamp || 0) * 1000,
+        cursor: tx.cursor
+      }))
+    ]);
+  }
+
+  useEffect(() => {
+    fetchOutgoing();
+  }, [id]);
 
   if (!initTx || initTx == "loading") {
     return (
@@ -152,7 +181,7 @@ export default function Process({ id }: Props) {
                 {formatAddress(interaction.node.message.id)}
               </td>
               <td>
-                {interaction.node.message.tags.find((t: any) => t.name === "Action").value}
+                {interaction.node.message.tags.find((t: any) => t.name === "Action")?.value || "-"}
               </td>
               <td>
                 {formatAddress(interaction.node.owner.address, 8)}
@@ -166,6 +195,46 @@ export default function Process({ id }: Props) {
             </tr>
           ))}
         </Table>
+      )}
+      {interactionsMode === "outgoing" && (
+        <InfiniteScroll
+          dataLength={outgoing.length}
+          next={fetchOutgoing}
+          hasMore={hasMoreInteractions}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
+          <Table>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Action</th>
+              <th>Block</th>
+              <th>Time</th>
+            </tr>
+            {outgoing.map((interaction, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  {formatAddress(interaction.id)}
+                </td>
+                <td>
+                  {interaction.action}
+                </td>
+                <td>
+                  {interaction.block}
+                </td>
+                <td>
+                  {dayjs(interaction.time).fromNow()}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </InfiniteScroll>
       )}
     </Wrapper>
   );
@@ -237,4 +306,12 @@ const InteractionsMenuItem = styled.p<{ active?: boolean; }>`
 
 interface Props {
   id: string;
+}
+
+interface OutgoingInteraction {
+  id: string;
+  action: string;
+  block: number;
+  time: number;
+  cursor: string;
 }

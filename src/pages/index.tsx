@@ -85,7 +85,7 @@ const Wrapper = styled.section`
   padding: 2rem 10vw;
 `;
 
-const LoadingStatus = styled.p`
+export const LoadingStatus = styled.p`
   text-align: center;
   margin: 1rem 0;
   color: #d4d4d4;
