@@ -29,7 +29,7 @@ export default function Home() {
         creator: tx.node.owner.address,
         scheduler: tx.node.tags.find((tag) => tag.name === "Scheduler")?.value || "-",
         cursor: tx.cursor
-      }))
+      })).filter((process) => !val.find(p => p.id === process.id))
     ]);
   }
 

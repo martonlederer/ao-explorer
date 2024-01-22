@@ -3,10 +3,12 @@ import arGql, { TransactionEdge } from "arweave-graphql";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { formatAddress } from "../utils/format";
+import { ClipboardIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
 import { styled } from "@linaria/react";
 import { LoadingStatus } from "./index";
 import Table from "../components/Table";
 import dayjs from "dayjs";
+import { Link } from "wouter"
 
 dayjs.extend(relativeTime);
 
@@ -91,7 +93,7 @@ export default function Process({ id }: Props) {
         block: tx.node.block?.height || 0,
         time: (tx.node.block?.timestamp || 0) * 1000,
         cursor: tx.cursor
-      }))
+      })).filter((interaction) => !val.find(v => v.id === interaction.id))
     ]);
   }
 
@@ -121,13 +123,21 @@ export default function Process({ id }: Props) {
       </ProcessTitle>
       <ProcessID>
         {id}
+        <Copy
+          onClick={() => navigator.clipboard.writeText(id)}
+        />
       </ProcessID>
       <Tables>
         <Table>
           <tr></tr>
           <tr>
             <td>Owner</td>
-            <td>{formatAddress(initTx.node.owner.address)}</td>
+            <td>
+              <Link to={`#/user/${initTx.node.owner.address}`}>
+                {formatAddress(initTx.node.owner.address)}
+                <ShareIcon />
+              </Link>
+            </td>
           </tr>
           <tr>
             <td>Variant</td>
@@ -135,14 +145,38 @@ export default function Process({ id }: Props) {
           </tr>
           <tr>
             <td>Module</td>
-            <td>{formatAddress(tags["Module"])}</td>
+            <td>
+              <Link to={`#/module/${formatAddress(tags.Module)}`}>
+                {formatAddress(tags["Module"])}
+                <ShareIcon />
+              </Link>
+            </td>
           </tr>
           <tr>
             <td>Scheduler</td>
             <td>
               {schedulerURL?.host || ""}
-              {" "}
-              ({formatAddress(tags.Scheduler, 7)})
+              {" ("}
+              <Link to={`#/scheduler/${tags.Scheduler}`}>
+                {formatAddress(tags.Scheduler, schedulerURL?.host ? 6 : 13)}
+                <ShareIcon />
+              </Link>
+              {")"}
+            </td>
+          </tr>
+          <tr>
+            <td>SDK</td>
+            <td>
+              {tags.SDK}
+            </td>
+          </tr>
+          <tr>
+            <td>Memory</td>
+            <td>
+              <a href={`https://ao-cu-1.onrender.com/state/${id}`}>
+                Download
+                <DownloadIcon />
+              </a>
             </td>
           </tr>
         </Table>
@@ -258,7 +292,7 @@ const Title = styled.h2`
   font-size: 1.35rem;
   font-weight: 600;
   color: #fff;
-  margin: 1em 0 .4em;
+  margin: 1em 0 .5em;
 `;
 
 const NotFound = styled.p`
@@ -273,16 +307,40 @@ const ProcessName = styled.span`
 `;
 
 const ProcessID = styled.h2`
+  display: flex;
+  align-items: center;
+  gap: .28rem;
   font-size: 1rem;
   color: rgba(255, 255, 255, .85);
   font-weight: 400;
   margin: 0 0 2.7rem;
 `;
 
+const Copy = styled(ClipboardIcon)`
+  width: 1.25rem;
+  height: 1.25rem;
+  color: inherit;
+  cursor: pointer;
+  transition: all .17s ease-in-out;
+
+  &:hover {
+    opacity: .8;
+  }
+
+  &:active {
+    transform: scale(.9);
+  }
+`;
+
 const Tables = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
+
+  a {
+    display: inline-flex;
+    color: #04ff00;
+  }
 `;
 
 const InteractionsMenu = styled.div`
