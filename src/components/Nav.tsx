@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { isAddress } from "../utils/format";
 import { styled } from "@linaria/react";
 import { useLocation } from "wouter";
+import Button from "./Btn";
 
 export default function Nav() {
   const { connect, connected } = useConnection();
@@ -94,23 +95,5 @@ const SearchInput = styled.input`
 
   &::placeholder {
     color: #a9a9a9;
-  }
-`;
-
-const Button = styled.button`
-  outline: none;
-  background-color: transparent;
-  border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 8px;
-  font-size: 1rem;
-  text-align: center;
-  cursor: pointer;
-  color: #fff;
-  padding: .73rem 1.65rem;
-  font-size: .9rem;
-  transition: all .17s ease-in-out;
-
-  &:hover {
-    background-color: rgba(255, 255, 255, .03);
   }
 `;

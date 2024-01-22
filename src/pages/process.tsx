@@ -1,14 +1,16 @@
+import { ArrowRightIcon, ClipboardIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
 import InfiniteScroll from "react-infinite-scroll-component";
+import { useConnection } from "@arweave-wallet-kit/react";
 import arGql, { TransactionEdge } from "arweave-graphql";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { formatAddress } from "../utils/format";
-import { ClipboardIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
+import Button from "../components/Btn";
 import { styled } from "@linaria/react";
 import { LoadingStatus } from "./index";
 import Table from "../components/Table";
+import { Link } from "wouter";
 import dayjs from "dayjs";
-import { Link } from "wouter"
 
 dayjs.extend(relativeTime);
 
@@ -101,6 +103,14 @@ export default function Process({ id }: Props) {
     fetchOutgoing();
   }, [id]);
 
+  const [query, setQuery] = useState("{\n  \"tags\": [\n    { name: \"Action\", value: \"Balance\" }\n  ],\n   \"data\": \"\"\n}");
+  const { connect, connected } = useConnection();
+
+  async function queryProcess() {
+    if (!connected) await connect();
+    // TODO: send query, forward to result
+  }
+
   if (!initTx || initTx == "loading") {
     return (
       <Wrapper>
@@ -180,6 +190,34 @@ export default function Process({ id }: Props) {
             </td>
           </tr>
         </Table>
+        <Query>
+          <QueryInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Tab") return;
+              e.preventDefault();
+
+              // @ts-expect-error
+              const selStart = e.target.selectionStart;
+              const textWithTab = 
+                query.substring(0, selStart) +
+                "  " +
+                // @ts-expect-error
+                query.substring(e.target.selectionEnd, query.length);
+
+              // @ts-expect-error
+              e.target.value = textWithTab;
+              // @ts-expect-error
+              e.target.setSelectionRange(selStart + 2, selStart + 2);
+              setQuery(textWithTab);
+            }}
+          ></QueryInput>
+          <Button onClick={queryProcess}>
+            Query
+            <ArrowRightIcon />
+          </Button>
+        </Query>
       </Tables>
       <Title>
         Interactions
@@ -360,6 +398,28 @@ const InteractionsMenuItem = styled.p<{ active?: boolean; }>`
   font-weight: 400;
   border-bottom: 2px solid ${props => props.active ? "#04ff00" : "transparent"};
   transition: all .15s ease-in-out;
+`;
+
+const Query = styled.div`
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 1rem;
+
+  button {
+    margin-left: auto;
+  }
+`;
+
+const QueryInput = styled.textarea`
+  display: inline-block;
+  background-color: rgba(255, 255, 255, .05);
+  padding: .7rem;
+  font-family: "Space Mono", monospace;
+  font-size: 1rem;
+  color: #fff;
+  border: none;
+  outline: none;
+  resize: none;
 `;
 
 interface Props {
