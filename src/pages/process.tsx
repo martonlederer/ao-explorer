@@ -1,7 +1,7 @@
 import { ArrowRightIcon, ClipboardIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useConnection } from "@arweave-wallet-kit/react";
-import arGql, { TransactionEdge } from "arweave-graphql";
+import arGql, { SortOrder, TransactionEdge } from "arweave-graphql";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { formatAddress } from "../utils/format";
@@ -156,7 +156,7 @@ export default function Process({ id }: Props) {
           <tr>
             <td>Module</td>
             <td>
-              <Link to={`#/module/${formatAddress(tags.Module)}`}>
+              <Link to={`#/module/${tags.Module}`}>
                 {formatAddress(tags["Module"])}
                 <ShareIcon />
               </Link>
@@ -246,7 +246,7 @@ export default function Process({ id }: Props) {
             <th>Block</th>
             <th>Time</th>
           </tr>
-          {incoming.map((interaction: any, i) => (
+          {incoming.sort((a: any, b: any) => parseInt(b.node.timestamp) - parseInt(a.node.timestamp)).map((interaction: any, i) => (
             <tr key={i}>
               <td></td>
               <td>
