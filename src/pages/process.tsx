@@ -1,15 +1,16 @@
 import { ArrowRightIcon, ClipboardIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
+import { createDataItemSigner, message } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useConnection } from "@arweave-wallet-kit/react";
-import arGql, { SortOrder, TransactionEdge } from "arweave-graphql";
+import arGql, { TransactionEdge } from "arweave-graphql";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { formatAddress } from "../utils/format";
-import Button from "../components/Btn";
+import { Link, useLocation } from "wouter";
 import { styled } from "@linaria/react";
 import { LoadingStatus } from "./index";
 import Table from "../components/Table";
-import { Link } from "wouter";
+import Button from "../components/Btn";
 import dayjs from "dayjs";
 
 dayjs.extend(relativeTime);
@@ -103,12 +104,22 @@ export default function Process({ id }: Props) {
     fetchOutgoing();
   }, [id]);
 
-  const [query, setQuery] = useState("{\n  \"tags\": [\n    { name: \"Action\", value: \"Balance\" }\n  ],\n   \"data\": \"\"\n}");
+  const [query, setQuery] = useState('{\n\t"tags": [\n\t\t{ "name": "Action", "value": "Balance" }\n\t],\n\t"data": ""\n}');
   const { connect, connected } = useConnection();
+  const [, setLocation] = useLocation();
 
   async function queryProcess() {
     if (!connected) await connect();
-    // TODO: send query, forward to result
+    const messageQuery = JSON.parse(query);
+    const messageID = await message({
+      process: id,
+      // TODO: use wallet kit
+      // @ts-expect-error
+      signer: createDataItemSigner(window.arweaveWallet),
+      tags: messageQuery.tags || [],
+      data: messageQuery.data
+    });
+    setLocation(`#/${id}/${messageID}`);
   }
 
   if (!initTx || initTx == "loading") {
@@ -156,10 +167,10 @@ export default function Process({ id }: Props) {
           <tr>
             <td>Module</td>
             <td>
-              <Link to={`#/module/${tags.Module}`}>
+              <a href={`https://viewblock.io/arweave/tx/${tags.Module}`} target="_blank" rel="noopener noreferer">
                 {formatAddress(tags["Module"])}
                 <ShareIcon />
-              </Link>
+              </a>
             </td>
           </tr>
           <tr>
@@ -167,10 +178,10 @@ export default function Process({ id }: Props) {
             <td>
               {schedulerURL?.host || ""}
               {" ("}
-              <Link to={`#/scheduler/${tags.Scheduler}`}>
+              <a href={`https://viewblock.io/arweave/tx/${tags.Scheduler}`} target="_blank" rel="noopener noreferer">
                 {formatAddress(tags.Scheduler, schedulerURL?.host ? 6 : 13)}
                 <ShareIcon />
-              </Link>
+              </a>
               {")"}
             </td>
           </tr>
@@ -250,7 +261,9 @@ export default function Process({ id }: Props) {
             <tr key={i}>
               <td></td>
               <td>
-                {formatAddress(interaction.node.message.id)}
+                <Link to={`#/${id}/${interaction.node.message.id}`}>
+                  {formatAddress(interaction.node.message.id)}
+                </Link>
               </td>
               <td>
                 {interaction.node.message.tags.find((t: any) => t.name === "Action")?.value || "-"}
@@ -292,7 +305,9 @@ export default function Process({ id }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  {formatAddress(interaction.id)}
+                  <Link to={`#/${id}/${interaction.id}`}>
+                    {formatAddress(interaction.id)}
+                  </Link>
                 </td>
                 <td>
                   {interaction.action}

@@ -38,7 +38,7 @@ function App() {
           new WebWalletStrategy(),
           new BrowserWalletStrategy()
         ],
-        permissions: ["ACCESS_ADDRESS", "ACCESS_ALL_ADDRESSES"],
+        permissions: ["ACCESS_ADDRESS", "ACCESS_ALL_ADDRESSES", "SIGN_TRANSACTION"],
         ensurePermissions: true,
         appInfo: {
           name: "ao Explorer",
