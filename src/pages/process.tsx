@@ -96,7 +96,7 @@ export default function Process({ id }: Props) {
         target: tx.node.recipient,
         action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
         block: tx.node.block?.height || 0,
-        time: (tx.node.block?.timestamp || 0) * 1000,
+        time: tx.node.block?.timestamp,
         cursor: tx.cursor
       })).filter((interaction) => !val.find(v => v.id === interaction.id))
     ]);
@@ -260,7 +260,7 @@ export default function Process({ id }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {incoming.sort((a: any, b: any) => parseInt(b.node.timestamp) - parseInt(a.node.timestamp)).map((interaction: any, i) => (
+            {incoming.sort((a: any, b: any) => parseInt(b.node.timestamp || 0) - parseInt(a.node.timestamp || 0)).map((interaction: any, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
@@ -278,7 +278,7 @@ export default function Process({ id }: Props) {
                   {parseInt(interaction.node.block)}
                 </td>
                 <td>
-                  {dayjs(interaction.node.timestamp).fromNow()}
+                  {(interaction.node.timestamp && dayjs(interaction.node.timestamp).fromNow()) || "Pending..."}
                 </td>
               </tr>
             ))}
@@ -331,7 +331,7 @@ export default function Process({ id }: Props) {
                   {interaction.block}
                 </td>
                 <td>
-                  {dayjs(interaction.time).fromNow()}
+                  {(interaction.time && dayjs(interaction.time * 1000).fromNow()) || "Pending..."}
                 </td>
               </tr>
             ))}
@@ -392,6 +392,6 @@ interface OutgoingInteraction {
   target: string;
   action: string;
   block: number;
-  time: number;
+  time?: number;
   cursor: string;
 }

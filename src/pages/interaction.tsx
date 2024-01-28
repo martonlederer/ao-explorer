@@ -160,7 +160,7 @@ export default function Interaction({ process, interaction }: Props) {
           <tr>
             <td>Timestamp</td>
             <td>
-              {dayjs((message.node.block?.timestamp || 0) * 1000).fromNow()}
+              {(message.node.block?.timestamp && dayjs((message.node.block?.timestamp) * 1000).fromNow()) || "Pending..."}
             </td>
           </tr>
         </Table>
