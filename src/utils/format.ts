@@ -1,4 +1,4 @@
-export function formatAddress(address: string, count = 13) {
+export function formatAddress(address: string, count = 11) {
   return (
     address.substring(0, count) +
     "..." +

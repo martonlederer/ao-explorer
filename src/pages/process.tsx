@@ -1,4 +1,5 @@
-import { ArrowRightIcon, ClipboardIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
+import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Title, Wrapper } from "../components/Page";
+import { ArrowRightIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
 import { createDataItemSigner, message } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useConnection } from "@arweave-wallet-kit/react";
@@ -119,7 +120,7 @@ export default function Process({ id }: Props) {
       tags: messageQuery.tags || [],
       data: messageQuery.data
     });
-    setLocation(`#/${id}/${messageID}`);
+    setLocation(`#/process/${id}/${messageID}`);
   }
 
   if (!initTx || initTx == "loading") {
@@ -154,10 +155,10 @@ export default function Process({ id }: Props) {
           <tr>
             <td>Owner</td>
             <td>
-              <Link to={`#/user/${initTx.node.owner.address}`}>
+              <a href={`https://viewblock.io/arweave/address/${initTx.node.owner.address}`} target="_blank" rel="noopener noreferer">
                 {formatAddress(initTx.node.owner.address)}
                 <ShareIcon />
-              </Link>
+              </a>
             </td>
           </tr>
           <tr>
@@ -248,38 +249,45 @@ export default function Process({ id }: Props) {
         </InteractionsMenuItem>
       </InteractionsMenu>
       {interactionsMode === "incoming" && (
-        <Table>
-          <tr>
-            <th></th>
-            <th>ID</th>
-            <th>Action</th>
-            <th>From</th>
-            <th>Block</th>
-            <th>Time</th>
-          </tr>
-          {incoming.sort((a: any, b: any) => parseInt(b.node.timestamp) - parseInt(a.node.timestamp)).map((interaction: any, i) => (
-            <tr key={i}>
-              <td></td>
-              <td>
-                <Link to={`#/${id}/${interaction.node.message.id}`}>
-                  {formatAddress(interaction.node.message.id)}
-                </Link>
-              </td>
-              <td>
-                {interaction.node.message.tags.find((t: any) => t.name === "Action")?.value || "-"}
-              </td>
-              <td>
-                {formatAddress(interaction.node.owner.address, 8)}
-              </td>
-              <td>
-                {parseInt(interaction.node.block)}
-              </td>
-              <td>
-                {dayjs(interaction.node.timestamp).fromNow()}
-              </td>
+        <div>
+          <Table>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Action</th>
+              <th>From</th>
+              <th>Block</th>
+              <th>Time</th>
             </tr>
-          ))}
-        </Table>
+            {incoming.sort((a: any, b: any) => parseInt(b.node.timestamp) - parseInt(a.node.timestamp)).map((interaction: any, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/process/${id}/${interaction.node.message.id}`}>
+                    {formatAddress(interaction.node.message.id)}
+                  </Link>
+                </td>
+                <td>
+                  {interaction.node.message.tags.find((t: any) => t.name === "Action")?.value || "-"}
+                </td>
+                <td>
+                  {formatAddress(interaction.node.owner.address, 8)}
+                </td>
+                <td>
+                  {parseInt(interaction.node.block)}
+                </td>
+                <td>
+                  {dayjs(interaction.node.timestamp).fromNow()}
+                </td>
+              </tr>
+            ))}
+          </Table>
+          {(!incoming || incoming.length === 0) && (
+            <LoadingStatus>
+              No incoming interactions
+            </LoadingStatus>
+          )}
+        </div>
       )}
       {interactionsMode === "outgoing" && (
         <InfiniteScroll
@@ -305,9 +313,7 @@ export default function Process({ id }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/${id}/${interaction.id}`}>
-                    {formatAddress(interaction.id)}
-                  </Link>
+                  {formatAddress(interaction.id)}
                 </td>
                 <td>
                   {interaction.action}
@@ -326,75 +332,6 @@ export default function Process({ id }: Props) {
     </Wrapper>
   );
 }
-
-const Wrapper = styled.section`
-  padding: 2rem 10vw;
-`;
-
-const ProcessTitle = styled.h1`
-  display: flex;
-  align-items: baseline;
-  gap: .35rem;
-  font-size: 1.6rem;
-  font-weight: 600;
-  margin: 0 0 .5rem;
-  color: #fff;
-`;
-
-const Title = styled.h2`
-  font-size: 1.35rem;
-  font-weight: 600;
-  color: #fff;
-  margin: 1em 0 .5em;
-`;
-
-const NotFound = styled.p`
-  text-align: center;
-  color: #fff;
-  margin: 2rem;
-`;
-
-const ProcessName = styled.span`
-  font-size: 1em;
-  color: rgba(255, 255, 255, .7);
-`;
-
-const ProcessID = styled.h2`
-  display: flex;
-  align-items: center;
-  gap: .28rem;
-  font-size: 1rem;
-  color: rgba(255, 255, 255, .85);
-  font-weight: 400;
-  margin: 0 0 2.7rem;
-`;
-
-const Copy = styled(ClipboardIcon)`
-  width: 1.25rem;
-  height: 1.25rem;
-  color: inherit;
-  cursor: pointer;
-  transition: all .17s ease-in-out;
-
-  &:hover {
-    opacity: .8;
-  }
-
-  &:active {
-    transform: scale(.9);
-  }
-`;
-
-const Tables = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-
-  a {
-    display: inline-flex;
-    color: #04ff00;
-  }
-`;
 
 const InteractionsMenu = styled.div`
   display: flex;

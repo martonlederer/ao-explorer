@@ -5,6 +5,7 @@ import { ArweaveWalletKit } from "@arweave-wallet-kit/react";
 import { pathToRegexp, Key } from "path-to-regexp";
 import { Router, Route, Switch } from "wouter";
 import makeCachedMatcher from "wouter/matcher";
+import Interaction from "./pages/interaction";
 import useHashLocation from "./utils/hash";
 import { styled } from "@linaria/react";
 import Process from "./pages/process";
@@ -57,6 +58,9 @@ function App() {
         <Main>
           <Switch>
             <Route path="/" component={Home} />
+            <Route path="/process/:id/:message">
+              {(props) => <Interaction process={props.id} interaction={props.message} />}
+            </Route>
             <Route path="/process/:id">
               {(props) => <Process id={props.id} />}
             </Route>
