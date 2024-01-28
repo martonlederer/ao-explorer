@@ -93,6 +93,7 @@ export default function Process({ id }: Props) {
       ...val,
       ...res.transactions.edges.map((tx) => ({
         id: tx.node.id,
+        target: tx.node.recipient,
         action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
         block: tx.node.block?.height || 0,
         time: (tx.node.block?.timestamp || 0) * 1000,
@@ -189,7 +190,7 @@ export default function Process({ id }: Props) {
           <tr>
             <td>SDK</td>
             <td>
-              {tags.SDK}
+              {tags.SDK || "-"}
             </td>
           </tr>
           <tr>
@@ -305,6 +306,7 @@ export default function Process({ id }: Props) {
             <tr>
               <th></th>
               <th>ID</th>
+              <th>Process</th>
               <th>Action</th>
               <th>Block</th>
               <th>Time</th>
@@ -313,7 +315,14 @@ export default function Process({ id }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  {formatAddress(interaction.id)}
+                  <Link to={`#/process/${interaction.target}/${interaction.id}`}>
+                    {formatAddress(interaction.id)}
+                  </Link>
+                </td>
+                <td>
+                  <Link to={`#/process/${interaction.target}`}>
+                    {formatAddress(interaction.target)}
+                  </Link>
                 </td>
                 <td>
                   {interaction.action}
@@ -380,6 +389,7 @@ interface Props {
 
 interface OutgoingInteraction {
   id: string;
+  target: string;
   action: string;
   block: number;
   time: number;

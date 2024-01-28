@@ -100,18 +100,33 @@ export default function Interaction({ process, interaction }: Props) {
               </a>
             </td>
           </tr>
+          {tags["From-Process"] && (
+            <tr>
+              <td>
+                From-Process
+              </td>
+              <td>
+                <Link to={`#/process/${tags["From-Process"]}`}>
+                  {formatAddress(tags["From-Process"])}
+                  <ShareIcon />
+                </Link>
+              </td> 
+            </tr>
+          )}
           <tr>
             <td>Variant</td>
             <td>
               {tags.Variant}
             </td>
           </tr>
-          <tr>
-            <td>Action</td>
-            <td>
-              {tags.Action}
-            </td>
-          </tr>
+          {tags.Action && (
+            <tr>
+              <td>Action</td>
+              <td>
+                {tags.Action || "-"}
+              </td>
+            </tr>
+          )}
           <tr>
             <td>Process</td>
             <td>
@@ -121,12 +136,27 @@ export default function Interaction({ process, interaction }: Props) {
               </Link>
             </td>            
           </tr>
-          <tr>
-            <td>SDK</td>
-            <td>
-              {tags.SDK}
-            </td>
-          </tr>
+          {tags["Cranked-For"] && tags["From-Process"] && (
+            <tr>
+              <td>
+                Cranked-For
+              </td>
+              <td>
+                <Link to={`#/process/${tags["From-Process"]}/${tags["Cranked-For"]}`}>
+                  {formatAddress(tags["Cranked-For"])}
+                  <ShareIcon />
+                </Link>
+              </td> 
+            </tr>
+          )}
+          {tags.SDK && (
+            <tr>
+              <td>SDK</td>
+              <td>
+                {tags.SDK || "-"}
+              </td>
+            </tr>
+          )}
           <tr>
             <td>Timestamp</td>
             <td>
