@@ -109,19 +109,27 @@ export default function Process({ id }: Props) {
   const [query, setQuery] = useState('{\n\t"tags": [\n\t\t{ "name": "Action", "value": "Balance" }\n\t],\n\t"data": ""\n}');
   const { connect, connected } = useConnection();
   const [, setLocation] = useLocation();
+  const [loadingQuery, setLoadingQuery] = useState(false);
 
   async function queryProcess() {
-    if (!connected) await connect();
-    const messageQuery = JSON.parse(query);
-    const messageID = await message({
-      process: id,
-      // TODO: use wallet kit
-      // @ts-expect-error
-      signer: createDataItemSigner(window.arweaveWallet),
-      tags: messageQuery.tags || [],
-      data: messageQuery.data
-    });
-    setLocation(`#/process/${id}/${messageID}`);
+    if (loadingQuery) return;
+    setLoadingQuery(true);
+    try {
+      if (!connected) await connect();
+      const messageQuery = JSON.parse(query);
+      const messageID = await message({
+        process: id,
+        // TODO: use wallet kit
+        // @ts-expect-error
+        signer: createDataItemSigner(window.arweaveWallet),
+        tags: messageQuery.tags || [],
+        data: messageQuery.data
+      });
+      setLocation(`#/process/${id}/${messageID}`);
+    } catch (e) {
+      console.log("Query error:", e);
+    }
+    setLoadingQuery(false);
   }
 
   if (!initTx || initTx == "loading") {
@@ -227,8 +235,12 @@ export default function Process({ id }: Props) {
             }}
           ></QueryInput>
           <Button onClick={queryProcess}>
-            Query
-            <ArrowRightIcon />
+            {(loadingQuery && "Loading...") || (
+              <>
+                Query
+                <ArrowRightIcon />
+              </>
+            )}
           </Button>
         </Query>
       </Tables>
