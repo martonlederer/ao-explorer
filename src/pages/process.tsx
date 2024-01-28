@@ -3,7 +3,7 @@ import { ArrowRightIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
 import { createDataItemSigner, message } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useConnection } from "@arweave-wallet-kit/react";
-import arGql, { TransactionEdge } from "arweave-graphql";
+import arGql, { Tag, TransactionEdge } from "arweave-graphql";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { formatAddress } from "../utils/format";
@@ -131,6 +131,9 @@ export default function Process({ id }: Props) {
     }
     setLoadingQuery(false);
   }
+
+  const tagValue = (name: string, node: any) => 
+    node?.tags?.find((t: any) => t.name === name)?.value as string
 
   if (!initTx || initTx == "loading") {
     return (
@@ -281,10 +284,26 @@ export default function Process({ id }: Props) {
                   </Link>
                 </td>
                 <td>
-                  {interaction.node.message.tags.find((t: any) => t.name === "Action")?.value || "-"}
+                  {interaction.node.message.tags.find((t: Tag) => t.name === "Action")?.value || "-"}
                 </td>
                 <td>
-                  {formatAddress(interaction.node.owner.address, 8)}
+                  {(() => {
+                    const fromProcess = interaction.node.message.tags.find((t: Tag) => t.name === "From-Process")?.value
+
+                    if (fromProcess) {
+                      return (
+                        <Link to={`#/process/${fromProcess}`}>
+                          {formatAddress(fromProcess)}
+                        </Link>
+                      )
+                    }
+
+                    return (
+                      <a href={`https://viewblock.io/arweave/address/${interaction.node.owner.address}`} target="_blank" rel="noopener noreferrer">
+                        {formatAddress(interaction.node.owner.address, 8)}
+                      </a>
+                    )
+                  })()}
                 </td>
                 <td>
                   {parseInt(interaction.node.block)}
