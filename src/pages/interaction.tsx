@@ -1,7 +1,7 @@
 import { Copy, NotFound, ProcessID, ProcessTitle, Tables, Wrapper } from "../components/Page";
-import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import arGql, { GetTransactionsQuery } from "arweave-graphql";
 import { useEffect, useMemo, useState } from "react";
+import relativeTime from "dayjs/plugin/relativeTime";
 import { formatAddress } from "../utils/format";
 import { ShareIcon } from "@iconicicons/react";
 import { result } from "@permaweb/aoconnect";
@@ -9,6 +9,8 @@ import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import { Link } from "wouter";
 import dayjs from "dayjs"
+
+dayjs.extend(relativeTime);
 
 type Transaction = GetTransactionsQuery["transactions"]["edges"][0]
 
