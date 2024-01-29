@@ -132,9 +132,6 @@ export default function Process({ id }: Props) {
     setLoadingQuery(false);
   }
 
-  const tagValue = (name: string, node: any) => 
-    node?.tags?.find((t: any) => t.name === name)?.value as string
-
   if (!initTx || initTx == "loading") {
     return (
       <Wrapper>
