@@ -30,6 +30,7 @@ const Table = styled.table`
     gap: .26rem;
     color: inherit;
     text-decoration: none;
+    cursor: pointer;
     transition: .17s ease-in-out;
 
     svg {

@@ -89,17 +89,25 @@ export default function Process({ id }: Props) {
     });
 
     setHasMoreInteractions(res.transactions.pageInfo.hasNextPage);
-    setOutgoing((val) => [
-      ...val,
-      ...res.transactions.edges.map((tx) => ({
-        id: tx.node.id,
-        target: tx.node.recipient,
-        action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
-        block: tx.node.block?.height || 0,
-        time: tx.node.block?.timestamp,
-        cursor: tx.cursor
-      })).filter((interaction) => !val.find(v => v.id === interaction.id))
-    ]);
+    setOutgoing((val) => {
+      // manually filter out duplicate transactions
+      // for some reason, the ar.io nodes return the
+      // same transaction multiple times for certain
+      // queries
+      for (const tx of res.transactions.edges) {
+        if (val.find((t) => t.id === tx.node.id)) continue;
+        val.push({
+          id: tx.node.id,
+          target: tx.node.recipient,
+          action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
+          block: tx.node.block?.height || 0,
+          time: tx.node.block?.timestamp,
+          cursor: tx.cursor
+        });
+      }
+
+      return val;
+    });
   }
 
   useEffect(() => {
@@ -245,7 +253,7 @@ export default function Process({ id }: Props) {
         </Query>
       </Tables>
       <Title>
-        Interactions
+        Messages
       </Title>
       <InteractionsMenu>
         <InteractionsMenuItem

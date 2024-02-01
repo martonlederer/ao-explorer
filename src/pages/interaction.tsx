@@ -1,9 +1,9 @@
 import { Copy, NotFound, ProcessID, ProcessTitle, Tables, Wrapper } from "../components/Page";
 import arGql, { GetTransactionsQuery } from "arweave-graphql";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { formatAddress } from "../utils/format";
-import { ShareIcon } from "@iconicicons/react";
+import { ArrowDownIcon, ShareIcon } from "@iconicicons/react";
 import { result } from "@permaweb/aoconnect";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
@@ -69,6 +69,8 @@ export default function Interaction({ process, interaction }: Props) {
     })();
   }, [process, interaction]);
 
+  const tagsRef = useRef<HTMLDivElement>();
+
   if (!message || message == "loading") {
     return (
       <Wrapper>
@@ -82,7 +84,7 @@ export default function Interaction({ process, interaction }: Props) {
   return (
     <Wrapper>
       <ProcessTitle>
-        Interaction
+        Message
       </ProcessTitle>
       <ProcessID>
         {interaction}
@@ -165,6 +167,15 @@ export default function Interaction({ process, interaction }: Props) {
               {(message.node.block?.timestamp && dayjs((message.node.block?.timestamp) * 1000).fromNow()) || "Pending..."}
             </td>
           </tr>
+          <tr>
+            <td>Tags</td>
+            <td>
+              <a onClick={() => tagsRef.current?.scrollIntoView()}>
+                View
+                <ArrowDownIcon />
+              </a>
+            </td>
+          </tr>
         </Table>
         <Data>
           <DataTitle>
@@ -179,6 +190,13 @@ export default function Interaction({ process, interaction }: Props) {
           Result
         </DataTitle>
         {res || ""}
+      </Data>
+      <Space />
+      <Data ref={tagsRef as any}>
+        <DataTitle>
+          Tags
+        </DataTitle>
+        {JSON.stringify(tags || {}, null, 2)}
       </Data>
     </Wrapper>
   );
