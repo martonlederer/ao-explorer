@@ -196,7 +196,7 @@ export default function Process({ id }: Props) {
             <td>
               {schedulerURL?.host || ""}
               {" ("}
-              <a href={`https://viewblock.io/arweave/tx/${tags.Scheduler}`} target="_blank" rel="noopener noreferer">
+              <a href={`https://viewblock.io/arweave/address/${tags.Scheduler}`} target="_blank" rel="noopener noreferer">
                 {formatAddress(tags.Scheduler, schedulerURL?.host ? 6 : 13)}
                 <ShareIcon />
               </a>
