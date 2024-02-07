@@ -74,7 +74,7 @@ export default function Process({ id }: Props) {
       const scheduler = schedulerURL?.toString() || "https://ao-su-1.onrender.com/";
       const incomingRes = await (await fetch(`${scheduler}${id}`)).json();
 
-      setIncoming(incomingRes.edges);
+      setIncoming(incomingRes?.edges || []);
     })();
   }, [schedulerURL, id]);
 
