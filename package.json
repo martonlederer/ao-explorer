@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npx arkb deploy ./dist -w ./wallet.json --bundle"
   },
   "dependencies": {
     "@arweave-wallet-kit/arconnect-strategy": "^0.0.1-beta.4",
