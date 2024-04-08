@@ -6,7 +6,7 @@ import { useConnection } from "@arweave-wallet-kit/react";
 import arGql, { Tag, TransactionEdge } from "arweave-graphql";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { formatAddress } from "../utils/format";
+import { formatAddress, getTagValue } from "../utils/format";
 import { Link, useLocation } from "wouter";
 import { styled } from "@linaria/react";
 import { LoadingStatus } from "./index";
@@ -280,7 +280,7 @@ export default function Process({ id }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {incoming.sort((a: any, b: any) => parseInt(b.node.message.timestamp || 0) - parseInt(a.node.message.timestamp || 0)).map((interaction: any, i) => (
+            {incoming.sort((a: any, b: any) => parseInt(getTagValue("Timestamp", b.node.assignment.tags) || "0") - parseInt(getTagValue("Timestamp", a.node.assignment.tags) || "0")).map((interaction: any, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
@@ -311,10 +311,14 @@ export default function Process({ id }: Props) {
                   })()}
                 </td>
                 <td>
-                  {parseInt(interaction.node.message.block || 0)}
+                  {parseInt(getTagValue("Block-Height", interaction.node.assignment.tags) || "0")}
                 </td>
                 <td>
-                  {(interaction.node.message.timestamp && dayjs(interaction.node.message.timestamp).fromNow()) || "Pending..."}
+                  {(() => {
+                    const t = parseInt(getTagValue("Timestamp", interaction.node.assignment.tags) || "0");
+
+                    return (t && dayjs(t).fromNow()) || "Pending...";
+                  })()}
                 </td>
               </tr>
             ))}
