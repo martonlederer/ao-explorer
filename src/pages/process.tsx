@@ -280,7 +280,7 @@ export default function Process({ id }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {incoming.sort((a: any, b: any) => parseInt(b.node.timestamp || 0) - parseInt(a.node.timestamp || 0)).map((interaction: any, i) => (
+            {incoming.sort((a: any, b: any) => parseInt(b.node.message.timestamp || 0) - parseInt(a.node.message.timestamp || 0)).map((interaction: any, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
@@ -304,17 +304,17 @@ export default function Process({ id }: Props) {
                     }
 
                     return (
-                      <a href={`https://viewblock.io/arweave/address/${interaction.node.owner.address}`} target="_blank" rel="noopener noreferrer">
-                        {formatAddress(interaction.node.owner.address, 8)}
+                      <a href={`https://viewblock.io/arweave/address/${interaction.node.message.owner.address}`} target="_blank" rel="noopener noreferrer">
+                        {formatAddress(interaction.node.message.owner.address, 8)}
                       </a>
                     )
                   })()}
                 </td>
                 <td>
-                  {parseInt(interaction.node.block)}
+                  {parseInt(interaction.node.message.block || 0)}
                 </td>
                 <td>
-                  {(interaction.node.timestamp && dayjs(interaction.node.timestamp).fromNow()) || "Pending..."}
+                  {(interaction.node.message.timestamp && dayjs(interaction.node.message.timestamp).fromNow()) || "Pending..."}
                 </td>
               </tr>
             ))}
