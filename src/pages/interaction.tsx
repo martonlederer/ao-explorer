@@ -15,9 +15,13 @@ dayjs.extend(relativeTime);
 
 type Transaction = GetTransactionsQuery["transactions"]["edges"][0]
 
-export default function Interaction({ process, interaction }: Props) {
+export default function Interaction({ interaction }: Props) {
   const [message, setMessage] = useState<Transaction | "loading">("loading");
   const gateway = useGateway();
+  const process = useMemo<string | undefined>(() => {
+    if (message === "loading" || !message) return undefined;
+    return message.node.recipient;
+  }, [message]);
 
   useEffect(() => {
     (async () => {
@@ -62,6 +66,7 @@ export default function Interaction({ process, interaction }: Props) {
 
   useEffect(() => {
     (async () => {
+      if (!process) return;
       const resultData = await result({
         message: interaction,
         process
@@ -133,22 +138,24 @@ export default function Interaction({ process, interaction }: Props) {
               </td>
             </tr>
           )}
-          <tr>
-            <td>Process</td>
-            <td>
-              <Link to={`#/process/${process}`}>
-                {formatAddress(process)}
-                <ShareIcon />
-              </Link>
-            </td>            
-          </tr>
+          {process && (
+            <tr>
+              <td>Process</td>
+              <td>
+                <Link to={`#/process/${process}`}>
+                  {formatAddress(process)}
+                  <ShareIcon />
+                </Link>
+              </td>            
+            </tr>
+          )}
           {tags["Cranked-For"] && tags["From-Process"] && (
             <tr>
               <td>
                 Cranked-For
               </td>
               <td>
-                <Link to={`#/process/${tags["From-Process"]}/${tags["Cranked-For"]}`}>
+                <Link to={`#/message/${tags["Cranked-For"]}`}>
                   {formatAddress(tags["Cranked-For"])}
                   <ShareIcon />
                 </Link>
@@ -231,6 +238,5 @@ const Space = styled.div`
 `;
 
 interface Props {
-  process: string;
   interaction: string;
 }

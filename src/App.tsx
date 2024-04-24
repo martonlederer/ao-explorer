@@ -3,7 +3,7 @@ import ArConnectStrategy from "@arweave-wallet-kit/arconnect-strategy";
 import WebWalletStrategy from "@arweave-wallet-kit/webwallet-strategy";
 import { ArweaveWalletKit } from "@arweave-wallet-kit/react";
 import { pathToRegexp, Key } from "path-to-regexp";
-import { Router, Route, Switch } from "wouter";
+import { Router, Route, Switch, Redirect } from "wouter";
 import makeCachedMatcher from "wouter/matcher";
 import Interaction from "./pages/interaction";
 import { useGateway } from "./utils/hooks";
@@ -61,11 +61,14 @@ function App() {
         <Main>
           <Switch>
             <Route path="/" component={Home} />
-            <Route path="/process/:id/:message">
-              {(props) => <Interaction process={props.id} interaction={props.message} />}
+            <Route path="/message/:message">
+              {(props) => <Interaction interaction={props.message} />}
             </Route>
             <Route path="/process/:id">
               {(props) => <Process id={props.id} />}
+            </Route>
+            <Route path="/process/:id/:message">
+              {(props) => <Redirect to={`/message/${props.message}`} />}
             </Route>
           </Switch>
         </Main>

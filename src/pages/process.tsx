@@ -135,7 +135,7 @@ export default function Process({ id }: Props) {
         tags: messageQuery.tags || [],
         data: messageQuery.data
       });
-      setLocation(`#/process/${id}/${messageID}`);
+      setLocation(`#/message/${messageID}`);
     } catch (e) {
       console.log("Query error:", e);
     }
@@ -286,7 +286,7 @@ export default function Process({ id }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/process/${id}/${interaction.node.message.id}`}>
+                  <Link to={`#/message/${interaction.node.message.id}`}>
                     {formatAddress(interaction.node.message.id)}
                   </Link>
                 </td>
@@ -357,7 +357,7 @@ export default function Process({ id }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/process/${interaction.target}/${interaction.id}`}>
+                  <Link to={`#/message/${interaction.id}`}>
                     {formatAddress(interaction.id)}
                   </Link>
                 </td>

@@ -2497,6 +2497,11 @@ supports-preserve-symlinks-flag@^1.0.0:
   resolved "https://registry.yarnpkg.com/supports-preserve-symlinks-flag/-/supports-preserve-symlinks-flag-1.0.0.tgz#6eda4bd344a3c94aea376d4cc31bc77311039e09"
   integrity sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==
 
+terminal-codes-to-html@^0.0.1:
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/terminal-codes-to-html/-/terminal-codes-to-html-0.0.1.tgz#df42d9c7b8fb2ff4fae042e8b509a973a8a3349a"
+  integrity sha512-AisFKdV7AKj9uIhOcaDybtMyCJAZEzqEeyswhT8sE7tr28F57elK7iLoK6YYY1nPD/15PpPlnccvyD8HKOfvfQ==
+
 throttle-debounce@^2.1.0:
   version "2.3.0"
   resolved "https://registry.yarnpkg.com/throttle-debounce/-/throttle-debounce-2.3.0.tgz#fd31865e66502071e411817e241465b3e9c372e2"
