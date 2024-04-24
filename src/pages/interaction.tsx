@@ -17,7 +17,7 @@ dayjs.extend(relativeTime);
 type Transaction = GetTransactionsQuery["transactions"]["edges"][0]
 
 export default function Interaction({ interaction }: Props) {
-  const [message, setMessage] = useState<Transaction | "loading">("loading");
+  const [message, setMessage] = useState<Transaction | "loading" | undefined>("loading");
   const gateway = useGateway();
 
   const process = useMemo<string | undefined>(() => {
@@ -25,18 +25,44 @@ export default function Interaction({ interaction }: Props) {
     return message.node.recipient;
   }, [message]);
 
-  useEffect(() => {
-    (async () => {
-      const res = await arGql(`${gateway}/graphql`).getTransactions({
-        ids: [interaction],
-        tags: [
-          { name: "Data-Protocol", values: ["ao"] },
-          { name: "Type", values: ["Message"] },
-        ]
-      });
+  const wait = (time: number) => new Promise((resolve) => setTimeout(resolve, time));
 
-      setMessage(res.transactions.edges[0]);
+  useEffect(() => {
+    let cancel = false;
+
+    (async () => {
+      let tries = 0;
+
+      while (tries < 5) {
+        try {
+          // get output for token qty
+          const res = await arGql(`${gateway}/graphql`).getTransactions({
+            ids: [interaction],
+            tags: [
+              { name: "Data-Protocol", values: ["ao"] },
+              { name: "Type", values: ["Message"] },
+            ]
+          });
+
+          if (cancel) return;
+
+          // breaks
+          if (res.transactions.edges[0]) {
+            return setMessage(res.transactions.edges[0]);
+          }
+
+          // wait a bit to see if the interaction loads
+          await wait(4000);
+        } catch {}
+        tries++;
+      }
+
+      setMessage(undefined);
     })();
+
+    return () => {
+      cancel = true;
+    };
   }, [process, interaction, gateway]);
 
   const tags = useMemo(() => {
@@ -56,44 +82,46 @@ export default function Interaction({ interaction }: Props) {
 
   useEffect(() => {
     (async () => {
+      if (!message || message === "loading") return;
       const data = await (
-        await fetch(`${gateway}/${interaction}`)
+        await fetch(`${gateway}/${message.node.id}`)
       ).text();
 
       setData(data || "");
     })();
-  }, [interaction, gateway]);
+  }, [gateway, message]);
 
   const [res, setRes] = useState<string>();
 
   useEffect(() => {
     (async () => {
-      if (!process) return;
+      if (!process || !message || message === "loading") return;
       const resultData = await result({
-        message: interaction,
+        message: message.node.id,
         process
       });
 
       setRes(JSON.stringify(resultData || {}, null, 2));
     })();
-  }, [process, interaction]);
+  }, [process, message]);
 
   const [messages, setMessages] = useState<GetTransactionsQuery["transactions"]["edges"]>([]);
 
   useEffect(() => {
     (async () => {
+      if (!message || message === "loading") return;
       const res = await arGql(`${gateway}/graphql`).getTransactions({
         tags: [
           { name: "Data-Protocol", values: ["ao"] },
           { name: "Type", values: ["Message"] },
-          { name: "Pushed-For", values: [interaction] }
+          { name: "Pushed-For", values: [message.node.id] }
         ],
         first: 100000
       });
 
       setMessages(res.transactions.edges);
     })();
-  }, [interaction, gateway]);
+  }, [message, gateway]);
 
   const tagsRef = useRef<HTMLDivElement>();
 
