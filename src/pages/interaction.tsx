@@ -1,15 +1,16 @@
 import { Copy, NotFound, ProcessID, ProcessTitle, Tables, Wrapper } from "../components/Page";
-import arGql, { GetTransactionsQuery } from "arweave-graphql";
-import { useEffect, useMemo, useRef, useState } from "react";
-import relativeTime from "dayjs/plugin/relativeTime";
-import { formatAddress } from "../utils/format";
+import arGql, { GetTransactionsQuery, Tag } from "arweave-graphql";
 import { ArrowDownIcon, ShareIcon } from "@iconicicons/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { formatAddress, getTagValue } from "../utils/format";
+import { terminalCodesToHtml } from "terminal-codes-to-html";
+import relativeTime from "dayjs/plugin/relativeTime";
 import { result } from "@permaweb/aoconnect";
 import { useGateway } from "../utils/hooks";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import { Link } from "wouter";
-import dayjs from "dayjs"
+import dayjs from "dayjs";
 
 dayjs.extend(relativeTime);
 
@@ -18,6 +19,7 @@ type Transaction = GetTransactionsQuery["transactions"]["edges"][0]
 export default function Interaction({ interaction }: Props) {
   const [message, setMessage] = useState<Transaction | "loading">("loading");
   const gateway = useGateway();
+
   const process = useMemo<string | undefined>(() => {
     if (message === "loading" || !message) return undefined;
     return message.node.recipient;
@@ -75,6 +77,23 @@ export default function Interaction({ interaction }: Props) {
       setRes(JSON.stringify(resultData || {}, null, 2));
     })();
   }, [process, interaction]);
+
+  const [messages, setMessages] = useState<GetTransactionsQuery["transactions"]["edges"]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const res = await arGql(`${gateway}/graphql`).getTransactions({
+        tags: [
+          { name: "Data-Protocol", values: ["ao"] },
+          { name: "Type", values: ["Message"] },
+          { name: "Pushed-For", values: [interaction] }
+        ],
+        first: 100000
+      });
+
+      setMessages(res.transactions.edges);
+    })();
+  }, [interaction, gateway]);
 
   const tagsRef = useRef<HTMLDivElement>();
 
@@ -149,14 +168,14 @@ export default function Interaction({ interaction }: Props) {
               </td>            
             </tr>
           )}
-          {tags["Cranked-For"] && tags["From-Process"] && (
+          {tags["Pushed-For"] && tags["From-Process"] && (
             <tr>
               <td>
-                Cranked-For
+                Pushed-For
               </td>
               <td>
-                <Link to={`#/message/${tags["Cranked-For"]}`}>
-                  {formatAddress(tags["Cranked-For"])}
+                <Link to={`#/message/${tags["Pushed-For"]}`}>
+                  {formatAddress(tags["Pushed-For"])}
                   <ShareIcon />
                 </Link>
               </td> 
@@ -190,10 +209,54 @@ export default function Interaction({ interaction }: Props) {
           <DataTitle>
             Data
           </DataTitle>
-          {data}
+          <div dangerouslySetInnerHTML={{ __html: terminalCodesToHtml(data) }}></div>
         </Data>
       </Tables>
       <Space />
+      {messages.length > 0 && (
+        <>
+          <ProcessID style={{ marginBottom: ".75rem" }}>
+            Resulting messages
+          </ProcessID>
+          <Table>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Action</th>
+              <th>From</th>
+              <th>Block</th>
+              <th>Time</th>
+            </tr>
+            {messages.map((msg, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/message/${msg.node.id}`}>
+                    {formatAddress(msg.node.id)}
+                  </Link>
+                </td>
+                <td>
+                  {msg.node.tags.find((t: Tag) => t.name === "Action")?.value || "-"}
+                </td>
+                <td>
+                  {process && (
+                    <Link to={`#/process/${process}`}>
+                      {formatAddress(process)}
+                    </Link>
+                  )}
+                </td>
+                <td>
+                  {msg.node.block?.height || "Pending..."}
+                </td>
+                <td>
+                  {(msg.node.block?.timestamp && dayjs(msg.node.block.timestamp * 1000).fromNow()) || "Pending..."}
+                </td>
+              </tr>
+            ))}
+          </Table>
+          <Space />
+        </>
+      )}
       <Data>
         <DataTitle>
           Result
