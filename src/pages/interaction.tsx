@@ -5,6 +5,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { formatAddress } from "../utils/format";
 import { ArrowDownIcon, ShareIcon } from "@iconicicons/react";
 import { result } from "@permaweb/aoconnect";
+import { useGateway } from "../utils/hooks";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import { Link } from "wouter";
@@ -16,10 +17,11 @@ type Transaction = GetTransactionsQuery["transactions"]["edges"][0]
 
 export default function Interaction({ process, interaction }: Props) {
   const [message, setMessage] = useState<Transaction | "loading">("loading");
+  const gateway = useGateway();
 
   useEffect(() => {
     (async () => {
-      const res = await arGql("https://arweave.net/graphql").getTransactions({
+      const res = await arGql(`${gateway}/graphql`).getTransactions({
         ids: [interaction],
         tags: [
           { name: "Data-Protocol", values: ["ao"] },
@@ -29,7 +31,7 @@ export default function Interaction({ process, interaction }: Props) {
 
       setMessage(res.transactions.edges[0]);
     })();
-  }, [process, interaction]);
+  }, [process, interaction, gateway]);
 
   const tags = useMemo(() => {
     const tagRecord: { [name: string]: string } = {};
@@ -49,12 +51,12 @@ export default function Interaction({ process, interaction }: Props) {
   useEffect(() => {
     (async () => {
       const data = await (
-        await fetch(`https://arweave.net/${interaction}`)
+        await fetch(`${gateway}/${interaction}`)
       ).text();
 
       setData(data || "");
     })();
-  }, [interaction]);
+  }, [interaction, gateway]);
 
   const [res, setRes] = useState<string>();
 

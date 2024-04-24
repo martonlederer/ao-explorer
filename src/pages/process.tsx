@@ -2,11 +2,12 @@ import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Title, Wr
 import { ArrowRightIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
 import { createDataItemSigner, message } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
-import { useConnection } from "@arweave-wallet-kit/react";
 import arGql, { Tag, TransactionEdge } from "arweave-graphql";
+import { formatAddress, getTagValue } from "../utils/format";
+import { useConnection } from "@arweave-wallet-kit/react";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { formatAddress, getTagValue } from "../utils/format";
+import { useGateway } from "../utils/hooks";
 import { Link, useLocation } from "wouter";
 import { styled } from "@linaria/react";
 import { LoadingStatus } from "./index";
@@ -18,17 +19,18 @@ dayjs.extend(relativeTime);
 
 export default function Process({ id }: Props) {
   const [initTx, setInitTx] = useState<TransactionEdge | "loading">("loading");
+  const gateway = useGateway();
 
   useEffect(() => {
     (async () => {
       setInitTx("loading");
-      const res = await arGql("https://arweave.net/graphql").getTransactions({
+      const res = await arGql(`${gateway}/graphql`).getTransactions({
         ids: [id]
       });
 
       setInitTx(res.transactions.edges[0] as TransactionEdge);
     })();
-  }, [id]);
+  }, [id, gateway]);
 
   const tags = useMemo(() => {
     const tagRecord: { [name: string]: string } = {};
@@ -49,7 +51,7 @@ export default function Process({ id }: Props) {
     (async () => {
       if (!initTx || initTx == "loading") return;
 
-      const res = await arGql("https://arweave.net/graphql").getTransactions({
+      const res = await arGql(`${gateway}/graphql`).getTransactions({
         owners: [tags.Scheduler],
         tags: [
           { name: "Data-Protocol", values: ["ao"] },
@@ -62,7 +64,7 @@ export default function Process({ id }: Props) {
 
       setSchedulerURL(new URL(url));
     })();
-  }, [tags, initTx]);
+  }, [tags, initTx, gateway]);
 
   const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing">("incoming");
   const [incoming, setIncoming] = useState([]);
@@ -79,7 +81,7 @@ export default function Process({ id }: Props) {
   }, [schedulerURL, id]);
 
   async function fetchOutgoing() {
-    const res = await arGql("https://arweave.net/graphql").getTransactions({
+    const res = await arGql(`${gateway}/graphql`).getTransactions({
       tags: [
         { name: "Data-Protocol", values: ["ao"] },
         { name: "From-Process", values: [id] }
@@ -112,7 +114,7 @@ export default function Process({ id }: Props) {
 
   useEffect(() => {
     fetchOutgoing();
-  }, [id]);
+  }, [id, gateway]);
 
   const [query, setQuery] = useState('{\n\t"tags": [\n\t\t{ "name": "Action", "value": "Balance" }\n\t],\n\t"data": ""\n}');
   const { connect, connected } = useConnection();

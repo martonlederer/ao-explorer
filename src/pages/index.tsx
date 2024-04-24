@@ -1,6 +1,7 @@
 import InfiniteScroll from "react-infinite-scroll-component";
 import { formatAddress } from "../utils/format";
 import { useEffect, useState } from "react";
+import { useGateway } from "../utils/hooks";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import gql from "arweave-graphql";
@@ -8,10 +9,11 @@ import { Link } from "wouter";
 
 export default function Home() {
   const [processes, setProcesses] = useState<Process[]>([]);
-  const [hasNextPage, setHasNextPage] = useState<boolean>(true)
+  const [hasNextPage, setHasNextPage] = useState<boolean>(true);
+  const gateway = useGateway();
 
   async function fetchProcesses() {
-    const res = await gql("https://arweave.net/graphql").getTransactions({
+    const res = await gql(`${gateway}/graphql`).getTransactions({
       tags: [
         { name: "Data-Protocol", values: ["ao"] },
         { name: "Type", values: ["Process"] }

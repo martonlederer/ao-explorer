@@ -6,6 +6,7 @@ import { pathToRegexp, Key } from "path-to-regexp";
 import { Router, Route, Switch } from "wouter";
 import makeCachedMatcher from "wouter/matcher";
 import Interaction from "./pages/interaction";
+import { useGateway } from "./utils/hooks";
 import useHashLocation from "./utils/hash";
 import { styled } from "@linaria/react";
 import Process from "./pages/process";
@@ -23,6 +24,8 @@ const convertPathToRegexp = (path: string) => {
 const customMatcher = makeCachedMatcher(convertPathToRegexp);
 
 function App() {
+  const gateway = useGateway();
+
   return (
     <ArweaveWalletKit
       theme={{
@@ -43,7 +46,7 @@ function App() {
         ensurePermissions: true,
         appInfo: {
           name: "ao Explorer",
-          logo: "https://arweave.net/tQUcL4wlNj_NED2VjUGUhfCTJ6pDN9P0e3CbnHo3vUE"
+          logo: `${gateway}/tQUcL4wlNj_NED2VjUGUhfCTJ6pDN9P0e3CbnHo3vUE`
         },
         gatewayConfig: {
           host: "arweave.net",
