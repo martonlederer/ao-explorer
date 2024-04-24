@@ -67,7 +67,7 @@ export default function Process({ id }: Props) {
   }, [tags, initTx, gateway]);
 
   const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing">("incoming");
-  const [incoming, setIncoming] = useState([]);
+  const [incoming, setIncoming] = useState<[]>();
   const [hasMoreInteractions, setHasMoreInteractions] = useState(true);
   const [outgoing, setOutgoing] = useState<OutgoingInteraction[]>([]);
 
@@ -282,7 +282,7 @@ export default function Process({ id }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {incoming.sort((a: any, b: any) => parseInt(getTagValue("Timestamp", b.node.assignment.tags) || "0") - parseInt(getTagValue("Timestamp", a.node.assignment.tags) || "0")).map((interaction: any, i) => (
+            {incoming && incoming.sort((a: any, b: any) => parseInt(getTagValue("Timestamp", b.node.assignment.tags) || "0") - parseInt(getTagValue("Timestamp", a.node.assignment.tags) || "0")).map((interaction: any, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
@@ -325,11 +325,15 @@ export default function Process({ id }: Props) {
               </tr>
             ))}
           </Table>
-          {(!incoming || incoming.length === 0) && (
+          {(!incoming && (
+            <LoadingStatus>
+              Loading interactions...
+            </LoadingStatus>
+          )) || (incoming && incoming.length === 0 && (
             <LoadingStatus>
               No incoming interactions
             </LoadingStatus>
-          )}
+          ))}
         </div>
       )}
       {interactionsMode === "outgoing" && (
