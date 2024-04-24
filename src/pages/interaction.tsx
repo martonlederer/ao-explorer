@@ -2,9 +2,9 @@ import { Copy, NotFound, ProcessID, ProcessTitle, Tables, Wrapper } from "../com
 import arGql, { GetTransactionsQuery, Tag } from "arweave-graphql";
 import { ArrowDownIcon, ShareIcon } from "@iconicicons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatAddress, getTagValue } from "../utils/format";
 import { terminalCodesToHtml } from "terminal-codes-to-html";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { formatAddress } from "../utils/format";
 import { result } from "@permaweb/aoconnect";
 import { useGateway } from "../utils/hooks";
 import { styled } from "@linaria/react";
