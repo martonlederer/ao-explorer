@@ -19,6 +19,7 @@ const Table = styled.table`
 
   td {
     color: rgba(255, 255, 255, .85);
+    vertical-align: top;
   }
 
   tr:nth-child(even) {

@@ -1,11 +1,12 @@
 import { Copy, NotFound, ProcessID, ProcessTitle, Tables, Wrapper } from "../components/Page";
 import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import arGql, { GetTransactionsQuery, Tag } from "arweave-graphql";
-import { ArrowDownIcon, ShareIcon } from "@iconicicons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { terminalCodesToHtml } from "terminal-codes-to-html";
-import relativeTime from "dayjs/plugin/relativeTime";
 import { formatAddress, getTagValue } from "../utils/format";
+import { terminalCodesToHtml } from "terminal-codes-to-html";
+import TagEl, { TagsWrapper } from "../components/Tag";
+import { useEffect, useMemo, useState } from "react";
+import relativeTime from "dayjs/plugin/relativeTime";
+import { ShareIcon } from "@iconicicons/react";
 import { result } from "@permaweb/aoconnect";
 import { useGateway } from "../utils/hooks";
 import { styled } from "@linaria/react";
@@ -143,8 +144,6 @@ export default function Interaction({ interaction }: Props) {
     })();
   }, [message, gateway, res]);
 
-  const tagsRef = useRef<HTMLDivElement>();
-
   if (!message || message == "loading") {
     return (
       <Wrapper>
@@ -246,10 +245,15 @@ export default function Interaction({ interaction }: Props) {
           <tr>
             <td>Tags</td>
             <td>
-              <a onClick={() => tagsRef.current?.scrollIntoView()}>
-                View
-                <ArrowDownIcon />
-              </a>
+              <TagsWrapper>
+                {Object.keys(tags).map((name, i) => (
+                  <TagEl
+                    name={name}
+                    value={tags[name]}
+                    key={i}
+                  />
+                ))}
+              </TagsWrapper>
             </td>
           </tr>
         </Table>
@@ -312,12 +316,6 @@ export default function Interaction({ interaction }: Props) {
         {(res && JSON.stringify(res || {}, null, 2) )|| ""}
       </Data>
       <Space />
-      <Data ref={tagsRef as any}>
-        <DataTitle>
-          Tags
-        </DataTitle>
-        {JSON.stringify(tags || {}, null, 2)}
-      </Data>
     </Wrapper>
   );
 }
