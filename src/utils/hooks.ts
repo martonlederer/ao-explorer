@@ -20,6 +20,7 @@ export function useGateway() {
 
       setGateway(server);
     };
+    listener();
 
     window.addEventListener("popstate", listener);
     return () => window.removeEventListener("popstate", listener);
