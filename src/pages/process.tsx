@@ -5,6 +5,7 @@ import InfiniteScroll from "react-infinite-scroll-component";
 import arGql, { Tag, TransactionEdge } from "arweave-graphql";
 import { formatAddress, getTagValue } from "../utils/format";
 import { useConnection } from "@arweave-wallet-kit/react";
+import TagEl, { TagsWrapper } from "../components/Tag";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useGateway } from "../utils/hooks";
@@ -206,9 +207,17 @@ export default function Process({ id }: Props) {
             </td>
           </tr>
           <tr>
-            <td>SDK</td>
+            <td>Tags</td>
             <td>
-              {tags.SDK || "-"}
+              <TagsWrapper>
+                {Object.keys(tags).map((name, i) => (
+                  <TagEl
+                    name={name}
+                    value={tags[name]}
+                    key={i}
+                  />
+                ))}
+              </TagsWrapper>
             </td>
           </tr>
           <tr>
