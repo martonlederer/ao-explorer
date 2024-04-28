@@ -3,6 +3,7 @@ import { styled } from "@linaria/react";
 const Table = styled.table`
   border-collapse: collapse;
   width: 100%;
+  min-height: min-content;
 
   td, th {
     border-left: none;

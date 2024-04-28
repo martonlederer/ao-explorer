@@ -352,8 +352,8 @@ export default function Process({ id }: Props) {
             <tr>
               <th></th>
               <th>ID</th>
-              <th>Process</th>
               <th>Action</th>
+              <th>To</th>
               <th>Block</th>
               <th>Time</th>
             </tr>
@@ -366,12 +366,12 @@ export default function Process({ id }: Props) {
                   </Link>
                 </td>
                 <td>
+                  {interaction.action}
+                </td>
+                <td>
                   <Link to={`#/process/${interaction.target}`}>
                     {formatAddress(interaction.target)}
                   </Link>
-                </td>
-                <td>
-                  {interaction.action}
                 </td>
                 <td>
                   {interaction.block}
