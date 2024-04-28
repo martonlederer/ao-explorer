@@ -20,11 +20,12 @@ const Field = styled.div`
 
 const Wrapper = styled.div`
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
   background-color: rgba(4, 255, 0, .1);
 
   ${Field}:first-child {
     background-color: rgba(4, 255, 0, .23);
+    white-space: nowrap;
   }
 `;
 

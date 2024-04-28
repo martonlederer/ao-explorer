@@ -1,5 +1,6 @@
 import { ClipboardIcon } from "@iconicicons/react";
 import { styled } from "@linaria/react";
+import Table from "./Table"
 
 export const Wrapper = styled.section`
   padding: 2rem 10vw;
@@ -67,5 +68,9 @@ export const Tables = styled.div`
   a {
     display: inline-flex !important;
     color: #04ff00 !important;
+  }
+
+  ${Table} tr td:first-child {
+    white-space: nowrap;
   }
 `;
