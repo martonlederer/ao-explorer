@@ -1,10 +1,11 @@
 import { Copy, NotFound, ProcessID, ProcessTitle, Tables, Wrapper } from "../components/Page";
+import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import arGql, { GetTransactionsQuery, Tag } from "arweave-graphql";
 import { ArrowDownIcon, ShareIcon } from "@iconicicons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { terminalCodesToHtml } from "terminal-codes-to-html";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { formatAddress } from "../utils/format";
+import { formatAddress, getTagValue } from "../utils/format";
 import { result } from "@permaweb/aoconnect";
 import { useGateway } from "../utils/hooks";
 import { styled } from "@linaria/react";
@@ -15,6 +16,12 @@ import dayjs from "dayjs";
 dayjs.extend(relativeTime);
 
 type Transaction = GetTransactionsQuery["transactions"]["edges"][0]
+export interface Message {
+  Anchor: string;
+  Tags: Tag[];
+  Target: string;
+  Data: string;
+}
 
 export default function Interaction({ interaction }: Props) {
   const [message, setMessage] = useState<Transaction | "loading" | undefined>("loading");
@@ -91,7 +98,7 @@ export default function Interaction({ interaction }: Props) {
     })();
   }, [gateway, message]);
 
-  const [res, setRes] = useState<string>();
+  const [res, setRes] = useState<MessageResult>();
 
   useEffect(() => {
     (async () => {
@@ -101,27 +108,36 @@ export default function Interaction({ interaction }: Props) {
         process
       });
 
-      setRes(JSON.stringify(resultData || {}, null, 2));
+      setRes(resultData);
     })();
   }, [process, message]);
 
-  const [messages, setMessages] = useState<GetTransactionsQuery["transactions"]["edges"]>([]);
+  const [resultingMessages, setResultingMessages] = useState<GetTransactionsQuery["transactions"]["edges"]>([]);
 
   useEffect(() => {
     (async () => {
-      if (!message || message === "loading") return;
-      const res = await arGql(`${gateway}/graphql`).getTransactions({
+      if (!message || message === "loading" || !res) return;
+      const pushedMessages = await arGql(`${gateway}/graphql`).getTransactions({
         tags: [
           { name: "Data-Protocol", values: ["ao"] },
           { name: "Type", values: ["Message"] },
-          { name: "Pushed-For", values: [message.node.id] }
+          { name: "Pushed-For", values: [tags["Pushed-For"] || message.node.id] }
         ],
         first: 100000
       });
 
-      setMessages(res.transactions.edges);
+      // array of references from the messages produced by this interaction
+      // this is required to filter out messages pushed for this interaction,
+      // from all messages pushed for the original message
+      const resultingRefs = res.Messages
+        .map((msg: Message) => getTagValue("Ref_", msg.Tags))
+        .filter((ref: string | undefined) => typeof ref === "string");
+
+      setResultingMessages(pushedMessages.transactions.edges.filter(
+        (edge) => resultingRefs.includes(getTagValue("Ref_", edge.node.tags))
+      ));
     })();
-  }, [message, gateway]);
+  }, [message, gateway, res]);
 
   const tagsRef = useRef<HTMLDivElement>();
 
@@ -241,7 +257,7 @@ export default function Interaction({ interaction }: Props) {
         </Data>
       </Tables>
       <Space />
-      {messages.length > 0 && (
+      {resultingMessages.length > 0 && (
         <>
           <ProcessID style={{ marginBottom: ".75rem" }}>
             Resulting messages
@@ -255,7 +271,7 @@ export default function Interaction({ interaction }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {messages.map((msg, i) => (
+            {resultingMessages.map((msg, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
@@ -289,7 +305,7 @@ export default function Interaction({ interaction }: Props) {
         <DataTitle>
           Result
         </DataTitle>
-        {res || ""}
+        {(res && JSON.stringify(res || {}, null, 2) )|| ""}
       </Data>
       <Space />
       <Data ref={tagsRef as any}>
