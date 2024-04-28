@@ -134,7 +134,11 @@ export default function Interaction({ interaction }: Props) {
         .filter((ref: string | undefined) => typeof ref === "string");
 
       setResultingMessages(pushedMessages.transactions.edges.filter(
-        (edge) => resultingRefs.includes(getTagValue("Ref_", edge.node.tags))
+        (edge) => {
+          const ref = getTagValue("Ref_", edge.node.tags);
+          
+          return ref && resultingRefs.includes(ref) && edge.node.id !== message.node.id;
+        }
       ));
     })();
   }, [message, gateway, res]);
