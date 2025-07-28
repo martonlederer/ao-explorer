@@ -5,10 +5,14 @@ import InfiniteScroll from "react-infinite-scroll-component";
 import arGql, { Tag, TransactionEdge } from "arweave-graphql";
 import { formatAddress, getTagValue } from "../utils/format";
 import { useConnection } from "@arweave-wallet-kit/react";
+import advancedFormat from "dayjs/plugin/advancedFormat";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
+import isYesterday from "dayjs/plugin/isYesterday";
+import weekOfYear from "dayjs/plugin/weekOfYear";
 import { useGateway } from "../utils/hooks";
+import isToday from "dayjs/plugin/isToday";
 import { Link, useLocation } from "wouter";
 import { styled } from "@linaria/react";
 import { LoadingStatus } from "./index";
@@ -17,6 +21,10 @@ import Button from "../components/Btn";
 import dayjs from "dayjs";
 
 dayjs.extend(relativeTime);
+dayjs.extend(advancedFormat);
+dayjs.extend(weekOfYear);
+dayjs.extend(isToday);
+dayjs.extend(isYesterday);
 
 export default function Process({ id }: Props) {
   const [initTx, setInitTx] = useState<TransactionEdge | "loading">("loading");
@@ -68,18 +76,32 @@ export default function Process({ id }: Props) {
   }, [tags, initTx, gateway]);
 
   const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing">("incoming");
-  const [incoming, setIncoming] = useState<[]>();
-  const [hasMoreInteractions, setHasMoreInteractions] = useState(true);
+
+  const [hasMoreIncoming, setHasMoreIncoming] = useState(true);
+  const [incoming, setIncoming] = useState<{ cursor: string; node: Record<string, any> }[]>([]);
+
+  const getNonce = (node: Record<string, any>) =>
+    parseInt(node.assignment.tags.find((tag: Tag) => tag.name === "Nonce")?.value) || undefined;
+
+  async function fetchIncoming() {
+    const scheduler = schedulerURL?.toString() || "https://su-router.ao-testnet.xyz/";
+    let toNonce = parseInt(incoming[incoming?.length - 1]?.cursor) - 1;
+    let fromNonce = toNonce - 100;
+
+    if (incoming.length === 0 && hasMoreIncoming) {
+      const res = await (await fetch(`${scheduler}${id}/latest`)).json();
+      toNonce = getNonce(res) || 0;
+      fromNonce = toNonce - 100;
+    }
+
+    const res = await (await fetch(`${scheduler}${id}?from-nonce=${fromNonce}&to-nonce=${toNonce}&limit=100`)).json();
+
+    setHasMoreIncoming(res.edges.length > 0 && (getNonce(res.edges[0].node) || 0) > 0);
+    setIncoming((val) => val.concat(res.edges.reverse()));
+  }
+
+  const [hasMoreOutgoing, setHasMoreOutgoing] = useState(true);
   const [outgoing, setOutgoing] = useState<OutgoingInteraction[]>([]);
-
-  useEffect(() => {
-    (async () => {
-      const scheduler = schedulerURL?.toString() || "https://ao-su-1.onrender.com/";
-      const incomingRes = await (await fetch(`${scheduler}${id}`)).json();
-
-      setIncoming(incomingRes?.edges || []);
-    })();
-  }, [schedulerURL, id]);
 
   async function fetchOutgoing() {
     const res = await arGql(`${gateway}/graphql`).getTransactions({
@@ -91,7 +113,7 @@ export default function Process({ id }: Props) {
       after: outgoing[outgoing.length - 1]?.cursor
     });
 
-    setHasMoreInteractions(res.transactions.pageInfo.hasNextPage);
+    setHasMoreOutgoing(res.transactions.pageInfo.hasNextPage);
     setOutgoing((val) => {
       // manually filter out duplicate transactions
       // for some reason, the ar.io nodes return the
@@ -142,6 +164,26 @@ export default function Process({ id }: Props) {
     }
     setLoadingQuery(false);
   }
+
+  const formatTimestamp = (t?: number) => {
+    if (!t) return "Pending...";
+    if (!dayjs(t).isToday()) { // not today
+      if (dayjs(t).isYesterday()) {
+        return "Yesterday";
+      }
+      if (dayjs(t).year() === dayjs().year()) { // same year
+        if (dayjs(t).week() === dayjs().week()) {
+          return dayjs(t).format("dddd");
+        }
+
+        return dayjs(t).format("MMMM Do");
+      }
+
+      return dayjs(t).format("DD MMMM, YYYY");
+    }
+
+    return dayjs(t).fromNow();
+  };
 
   if (!initTx || initTx == "loading") {
     return (
@@ -240,7 +282,7 @@ export default function Process({ id }: Props) {
 
               // @ts-expect-error
               const selStart = e.target.selectionStart;
-              const textWithTab = 
+              const textWithTab =
                 query.substring(0, selStart) +
                 "  " +
                 // @ts-expect-error
@@ -281,7 +323,17 @@ export default function Process({ id }: Props) {
         </InteractionsMenuItem>
       </InteractionsMenu>
       {interactionsMode === "incoming" && (
-        <div>
+        <InfiniteScroll
+          dataLength={incoming.length}
+          next={fetchIncoming}
+          hasMore={hasMoreIncoming}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
           <Table>
             <tr>
               <th></th>
@@ -291,7 +343,7 @@ export default function Process({ id }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {incoming && incoming.sort((a: any, b: any) => parseInt(getTagValue("Timestamp", b.node.assignment.tags) || "0") - parseInt(getTagValue("Timestamp", a.node.assignment.tags) || "0")).map((interaction: any, i) => (
+            {incoming && incoming.map((interaction: any, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
@@ -328,28 +380,19 @@ export default function Process({ id }: Props) {
                   {(() => {
                     const t = parseInt(getTagValue("Timestamp", interaction.node.assignment.tags) || "0");
 
-                    return (t && dayjs(t).fromNow()) || "Pending...";
+                    return formatTimestamp(t);
                   })()}
                 </td>
               </tr>
             ))}
           </Table>
-          {(!incoming && (
-            <LoadingStatus>
-              Loading interactions...
-            </LoadingStatus>
-          )) || (incoming && incoming.length === 0 && (
-            <LoadingStatus>
-              No incoming interactions
-            </LoadingStatus>
-          ))}
-        </div>
+        </InfiniteScroll>
       )}
       {interactionsMode === "outgoing" && (
         <InfiniteScroll
           dataLength={outgoing.length}
           next={fetchOutgoing}
-          hasMore={hasMoreInteractions}
+          hasMore={hasMoreOutgoing}
           loader={<LoadingStatus>Loading...</LoadingStatus>}
           endMessage={
             <LoadingStatus>
@@ -386,7 +429,7 @@ export default function Process({ id }: Props) {
                   {interaction.block}
                 </td>
                 <td>
-                  {(interaction.time && dayjs(interaction.time * 1000).fromNow()) || "Pending..."}
+                  {formatTimestamp(interaction.time && interaction.time * 1000)}
                 </td>
               </tr>
             ))}
