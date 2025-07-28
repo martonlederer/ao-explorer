@@ -1,6 +1,6 @@
 import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Title, Wrapper } from "../components/Page";
 import { ArrowRightIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
-import { createDataItemSigner, message } from "@permaweb/aoconnect"
+import { createDataItemSigner, message, dryrun, spawn } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import arGql, { Tag, TransactionEdge } from "arweave-graphql";
 import { formatAddress, getTagValue } from "../utils/format";
@@ -19,6 +19,7 @@ import { LoadingStatus } from "./index";
 import Table from "../components/Table";
 import Button from "../components/Btn";
 import dayjs from "dayjs";
+import { Message } from "./interaction";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -53,6 +54,16 @@ export default function Process({ id }: Props) {
 
     return tagRecord;
   }, [initTx]);
+
+  const owner = useMemo(() => {
+    if (initTx === "loading") return undefined;
+    const ownerAddr = tags["From-Process"] || initTx.node.owner.address;
+
+    return {
+      addr: ownerAddr,
+      type: typeof tags["From-Process"] !== "undefined" ? "process" : "user"
+    }
+  }, [tags, initTx]);
 
   const [schedulerURL, setSchedulerURL] = useState<URL>();
 
@@ -139,6 +150,34 @@ export default function Process({ id }: Props) {
     fetchOutgoing();
   }, [id, gateway]);
 
+  const [info, setInfo] = useState<Record<string, string> | undefined>();
+  const [viewMoreInfo, setViewMoreInfo] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const res = await dryrun({
+        process: id,
+        tags: [{ name: "Action", value: "Info" }]
+      });
+
+      if (res.Messages.length === 0) {
+        return setInfo(undefined);
+      }
+
+      const infoRes: Message = res.Messages.find((msg: Message) => !!msg.Tags.find((t) => t.name === "Name")?.value) || res.Messages[0];
+      const newInfo: Record<string, string> = {};
+
+      if (infoRes.Data && infoRes.Data !== "") {
+        newInfo.Data = infoRes.Data;
+      }
+      for (const tag of infoRes.Tags) {
+        newInfo[tag.name] = tag.value;
+      }
+
+      setInfo(newInfo);
+    })();
+  }, [id]);
+
   const [query, setQuery] = useState('{\n\t"tags": [\n\t\t{ "name": "Action", "value": "Balance" }\n\t],\n\t"data": ""\n}');
   const { connect, connected } = useConnection();
   const [, setLocation] = useLocation();
@@ -199,9 +238,9 @@ export default function Process({ id }: Props) {
     <Wrapper>
       <ProcessTitle>
         Process
-        {tags.Name && (
+        {info?.Name || tags.Name && (
           <ProcessName>
-            {tags.Name}
+            {info?.Name || tags.Name}
           </ProcessName>
         )}
       </ProcessTitle>
@@ -217,10 +256,23 @@ export default function Process({ id }: Props) {
           <tr>
             <td>Owner</td>
             <td>
-              <a href={`https://viewblock.io/arweave/address/${initTx.node.owner.address}`} target="_blank" rel="noopener noreferer">
-                {formatAddress(initTx.node.owner.address)}
-                <ShareIcon />
-              </a>
+              {owner && (
+                (owner.type === "user" && (
+                  <a
+                    href={`https://viewblock.io/arweave/address/${owner.addr}`}
+                    target="_blank"
+                    rel="noopener noreferer"
+                  >
+                    {formatAddress(owner.addr)}
+                    <ShareIcon />
+                  </a>
+                )) || (
+                  <Link to={`#/process/${owner.addr}`}>
+                    {formatAddress(owner.addr)}
+                    <ShareIcon />
+                  </Link>
+                )
+              )}
             </td>
           </tr>
           <tr>
@@ -262,6 +314,32 @@ export default function Process({ id }: Props) {
               </TagsWrapper>
             </td>
           </tr>
+          {info && (
+            <tr>
+              <td>Info</td>
+              <td>
+                <Table>
+                  {Object.keys(info).slice(0, viewMoreInfo ? Object.keys(info).length : 4).map((name, i) => (
+                    <tr key={i}>
+                      <td>{name}</td>
+                      <td>{info[name]}</td>
+                    </tr>
+                  ))}
+                  {Object.keys(info).length > 4 && (
+                    <tr>
+                      <td></td>
+                      <td>
+                        <a onClick={() => setViewMoreInfo(v => !v)}>
+                          View{" "}
+                          {viewMoreInfo ? "less" : "more"}
+                        </a>
+                      </td>
+                    </tr>
+                  )}
+                </Table>
+              </td>
+            </tr>
+          )}
           <tr>
             <td>Memory</td>
             <td>
@@ -272,38 +350,6 @@ export default function Process({ id }: Props) {
             </td>
           </tr>
         </Table>
-        <Query>
-          <QueryInput
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== "Tab") return;
-              e.preventDefault();
-
-              // @ts-expect-error
-              const selStart = e.target.selectionStart;
-              const textWithTab =
-                query.substring(0, selStart) +
-                "  " +
-                // @ts-expect-error
-                query.substring(e.target.selectionEnd, query.length);
-
-              // @ts-expect-error
-              e.target.value = textWithTab;
-              // @ts-expect-error
-              e.target.setSelectionRange(selStart + 2, selStart + 2);
-              setQuery(textWithTab);
-            }}
-          ></QueryInput>
-          <Button onClick={queryProcess}>
-            {(loadingQuery && "Loading...") || (
-              <>
-                Query
-                <ArrowRightIcon />
-              </>
-            )}
-          </Button>
-        </Query>
       </Tables>
       <Title>
         Messages
