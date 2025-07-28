@@ -1,4 +1,4 @@
-import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Title, Wrapper } from "../components/Page";
+import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Title, Wrapper } from "../components/Page";
 import { ArrowRightIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
 import { createDataItemSigner, message, dryrun, spawn } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
@@ -539,3 +539,20 @@ interface OutgoingInteraction {
   time?: number;
   cursor: string;
 }
+
+const Tables = styled.div`
+  width: 100%;
+
+  ${Table} {
+    width: 100%;
+  }
+
+  a {
+    display: inline-flex !important;
+    color: #04ff00 !important;
+  }
+
+  ${Table} tr td:first-child {
+    white-space: nowrap;
+  }
+`;

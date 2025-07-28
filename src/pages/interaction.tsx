@@ -131,13 +131,13 @@ export default function Interaction({ interaction }: Props) {
       // this is required to filter out messages pushed for this interaction,
       // from all messages pushed for the original message
       const resultingRefs = res.Messages
-        .map((msg: Message) => getTagValue("Ref_", msg.Tags))
-        .filter((ref: string | undefined) => typeof ref === "string");
-
+        .map((msg: Message) => getTagValue("Ref_", msg.Tags) || getTagValue("Reference", msg.Tags))
+        .filter((ref: string | undefined) => typeof ref === "string");
+console.log(resultingRefs, pushedMessages)
       setResultingMessages(pushedMessages.transactions.edges.filter(
         (edge) => {
-          const ref = getTagValue("Ref_", edge.node.tags);
-          
+          const ref = getTagValue("Ref_", edge.node.tags) || getTagValue("Reference", edge.node.tags);
+
           return ref && resultingRefs.includes(ref) && edge.node.id !== message.node.id;
         }
       ));
@@ -187,7 +187,7 @@ export default function Interaction({ interaction }: Props) {
                   {formatAddress(tags["From-Process"])}
                   <ShareIcon />
                 </Link>
-              </td> 
+              </td>
             </tr>
           )}
           <tr>
@@ -212,7 +212,7 @@ export default function Interaction({ interaction }: Props) {
                   {formatAddress(process)}
                   <ShareIcon />
                 </Link>
-              </td>            
+              </td>
             </tr>
           )}
           {tags["Pushed-For"] && tags["From-Process"] && (
@@ -225,7 +225,7 @@ export default function Interaction({ interaction }: Props) {
                   {formatAddress(tags["Pushed-For"])}
                   <ShareIcon />
                 </Link>
-              </td> 
+              </td>
             </tr>
           )}
           {tags.SDK && (
