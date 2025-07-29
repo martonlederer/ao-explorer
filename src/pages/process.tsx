@@ -95,7 +95,7 @@ export default function Process({ id }: Props) {
     })();
   }, [tags, initTx, gateway]);
 
-  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns">("incoming");
+  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals">("incoming");
 
   const [hasMoreIncoming, setHasMoreIncoming] = useState(true);
   const [incoming, setIncoming] = useState<{ cursor: string; node: Record<string, any> }[]>([]);
@@ -422,8 +422,14 @@ export default function Process({ id }: Props) {
         >
           Spawns
         </InteractionsMenuItem>
+        <InteractionsMenuItem
+          active={interactionsMode === "evals"}
+          onClick={() => setInteractionsMode("evals")}
+        >
+          Evals
+        </InteractionsMenuItem>
       </InteractionsMenu>
-      {interactionsMode === "incoming" && (
+      {(interactionsMode === "incoming" || interactionsMode === "evals") && (
         <InfiniteScroll
           dataLength={incoming.length}
           next={fetchIncoming}
@@ -444,7 +450,7 @@ export default function Process({ id }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {incoming && incoming.map((interaction: any, i) => (
+            {incoming && incoming.map((interaction: any, i) => (interactionsMode !== "evals" || getTagValue("Action", interaction.node.message.tags) === "Eval") && (
               <tr key={i}>
                 <td></td>
                 <td>
