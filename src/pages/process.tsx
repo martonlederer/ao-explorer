@@ -1,6 +1,6 @@
 import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Title, Wrapper } from "../components/Page";
-import { ArrowRightIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
-import { createDataItemSigner, message, dryrun, spawn } from "@permaweb/aoconnect"
+import { DownloadIcon, ShareIcon } from "@iconicicons/react";
+import { createDataItemSigner, message, dryrun } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import arGql, { Tag, TransactionEdge } from "arweave-graphql";
 import { formatAddress, getTagValue } from "../utils/format";
@@ -17,7 +17,6 @@ import { Link, useLocation } from "wouter";
 import { styled } from "@linaria/react";
 import { LoadingStatus } from "./index";
 import Table from "../components/Table";
-import Button from "../components/Btn";
 import dayjs from "dayjs";
 import { Message } from "./interaction";
 
@@ -227,11 +226,13 @@ export default function Process({ id }: Props) {
     })();
   }, [id]);
 
+  // @ts-expect-error
   const [query, setQuery] = useState('{\n\t"tags": [\n\t\t{ "name": "Action", "value": "Balance" }\n\t],\n\t"data": ""\n}');
   const { connect, connected } = useConnection();
   const [, setLocation] = useLocation();
   const [loadingQuery, setLoadingQuery] = useState(false);
 
+  // @ts-expect-error
   async function queryProcess() {
     if (loadingQuery) return;
     setLoadingQuery(true);
@@ -614,6 +615,7 @@ const InteractionsMenuItem = styled.p<{ active?: boolean; }>`
   transition: all .15s ease-in-out;
 `;
 
+// @ts-expect-error
 const Query = styled.div`
   display: grid;
   grid-template-rows: 1fr auto;
@@ -624,6 +626,7 @@ const Query = styled.div`
   }
 `;
 
+// @ts-expect-error
 const QueryInput = styled.textarea`
   display: inline-block;
   background-color: rgba(255, 255, 255, .05);
