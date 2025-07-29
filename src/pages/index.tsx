@@ -71,7 +71,7 @@ export default function Home() {
               <td>
                 <Link to={`#/process/${process.id}`}>
                   {process.name}
-                </Link>  
+                </Link>
               </td>
               <td>{formatAddress(process.creator, 7)}</td>
               <td>{formatAddress(process.scheduler, 7)}</td>

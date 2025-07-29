@@ -133,7 +133,7 @@ export default function Interaction({ interaction }: Props) {
       const resultingRefs = res.Messages
         .map((msg: Message) => getTagValue("Ref_", msg.Tags) || getTagValue("Reference", msg.Tags))
         .filter((ref: string | undefined) => typeof ref === "string");
-console.log(resultingRefs, pushedMessages)
+
       setResultingMessages(pushedMessages.transactions.edges.filter(
         (edge) => {
           const ref = getTagValue("Ref_", edge.node.tags) || getTagValue("Reference", edge.node.tags);

@@ -27,6 +27,15 @@ dayjs.extend(weekOfYear);
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
 
+interface Process {
+  id: string;
+  name: string;
+  module: string;
+  block: number;
+  timestamp: number;
+  cursor: string;
+}
+
 export default function Process({ id }: Props) {
   const [initTx, setInitTx] = useState<TransactionEdge | "loading">("loading");
   const gateway = useGateway();
@@ -86,7 +95,7 @@ export default function Process({ id }: Props) {
     })();
   }, [tags, initTx, gateway]);
 
-  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing">("incoming");
+  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns">("incoming");
 
   const [hasMoreIncoming, setHasMoreIncoming] = useState(true);
   const [incoming, setIncoming] = useState<{ cursor: string; node: Record<string, any> }[]>([]);
@@ -150,6 +159,42 @@ export default function Process({ id }: Props) {
     fetchOutgoing();
   }, [id, gateway]);
 
+  const [hasMoreSpawns, setHasMoreSpawns] = useState(true);
+  const [spawns, setSpawns] = useState<Process[]>([]);
+
+  async function fetchSpawns() {
+    const res = await arGql(`${gateway}/graphql`).getTransactions({
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] },
+        { name: "Type", values: ["Process"] },
+        { name: "From-Process", values: [id] }
+      ],
+      first: 100,
+      after: spawns[spawns.length - 1]?.cursor
+    });
+
+    setHasMoreSpawns(res.transactions.pageInfo.hasNextPage);
+    setSpawns((val) => {
+      for (const tx of res.transactions.edges) {
+        if (val.find((t) => t.id === tx.node.id)) continue;
+        val.push({
+          id: tx.node.id,
+          name: getTagValue("Name", tx.node.tags) || "",
+          module: getTagValue("Module", tx.node.tags) || "",
+          block: tx.node.block?.height || 0,
+          timestamp: (tx.node.block?.timestamp || 0) * 1000,
+          cursor: tx.cursor
+        });
+      }
+
+      return val;
+    });
+  }
+
+  useEffect(() => {
+    fetchSpawns();
+  }, [id, gateway]);
+
   const [info, setInfo] = useState<Record<string, string> | undefined>();
   const [viewMoreInfo, setViewMoreInfo] = useState(false);
 
@@ -168,7 +213,11 @@ export default function Process({ id }: Props) {
       const newInfo: Record<string, string> = {};
 
       if (infoRes.Data && infoRes.Data !== "") {
-        newInfo.Data = infoRes.Data;
+        try {
+          newInfo.Data = JSON.stringify(JSON.parse(infoRes.Data), null, 2);
+        } catch {
+          newInfo.Data = infoRes.Data;
+        }
       }
       for (const tag of infoRes.Tags) {
         newInfo[tag.name] = tag.value;
@@ -322,7 +371,7 @@ export default function Process({ id }: Props) {
                   {Object.keys(info).slice(0, viewMoreInfo ? Object.keys(info).length : 4).map((name, i) => (
                     <tr key={i}>
                       <td>{name}</td>
-                      <td>{info[name]}</td>
+                      <td style={name === "Data" ? { whiteSpace: "pre-wrap" } : {}}>{info[name]}</td>
                     </tr>
                   ))}
                   {Object.keys(info).length > 4 && (
@@ -366,6 +415,12 @@ export default function Process({ id }: Props) {
           onClick={() => setInteractionsMode("outgoing")}
         >
           Outgoing
+        </InteractionsMenuItem>
+        <InteractionsMenuItem
+          active={interactionsMode === "spawns"}
+          onClick={() => setInteractionsMode("spawns")}
+        >
+          Spawns
         </InteractionsMenuItem>
       </InteractionsMenu>
       {interactionsMode === "incoming" && (
@@ -428,6 +483,54 @@ export default function Process({ id }: Props) {
 
                     return formatTimestamp(t);
                   })()}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </InfiniteScroll>
+      )}
+      {interactionsMode === "spawns" && (
+        <InfiniteScroll
+          dataLength={spawns.length}
+          next={fetchSpawns}
+          hasMore={hasMoreSpawns}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
+          <Table>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Module</th>
+              <th>Block</th>
+              <th>Time</th>
+            </tr>
+            {spawns.map((process, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/process/${process.id}`}>
+                    {formatAddress(process.id)}
+                  </Link>
+                </td>
+                <td>
+                  {process.name}
+                </td>
+                <td>
+                  <a href={`https://viewblock.io/arweave/tx/${process.module}`} target="_blank" rel="noopener noreferrer">
+                    {formatAddress(process.module, 8)}
+                  </a>
+                </td>
+                <td>
+                  {process.block}
+                </td>
+                <td>
+                  {formatTimestamp(process.timestamp)}
                 </td>
               </tr>
             ))}
