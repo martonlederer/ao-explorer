@@ -1,22 +1,40 @@
-import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Title, Wrapper } from "../components/Page";
+import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Title, Wrapper } from "../components/Page";
 import { ArrowRightIcon, DownloadIcon, ShareIcon } from "@iconicicons/react";
-import { createDataItemSigner, message } from "@permaweb/aoconnect"
+import { createDataItemSigner, message, dryrun, spawn } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import arGql, { Tag, TransactionEdge } from "arweave-graphql";
 import { formatAddress, getTagValue } from "../utils/format";
 import { useConnection } from "@arweave-wallet-kit/react";
+import advancedFormat from "dayjs/plugin/advancedFormat";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
+import isYesterday from "dayjs/plugin/isYesterday";
+import weekOfYear from "dayjs/plugin/weekOfYear";
 import { useGateway } from "../utils/hooks";
+import isToday from "dayjs/plugin/isToday";
 import { Link, useLocation } from "wouter";
 import { styled } from "@linaria/react";
 import { LoadingStatus } from "./index";
 import Table from "../components/Table";
 import Button from "../components/Btn";
 import dayjs from "dayjs";
+import { Message } from "./interaction";
 
 dayjs.extend(relativeTime);
+dayjs.extend(advancedFormat);
+dayjs.extend(weekOfYear);
+dayjs.extend(isToday);
+dayjs.extend(isYesterday);
+
+interface Process {
+  id: string;
+  name: string;
+  module: string;
+  block: number;
+  timestamp: number;
+  cursor: string;
+}
 
 export default function Process({ id }: Props) {
   const [initTx, setInitTx] = useState<TransactionEdge | "loading">("loading");
@@ -46,6 +64,16 @@ export default function Process({ id }: Props) {
     return tagRecord;
   }, [initTx]);
 
+  const owner = useMemo(() => {
+    if (initTx === "loading") return undefined;
+    const ownerAddr = tags["From-Process"] || initTx.node.owner.address;
+
+    return {
+      addr: ownerAddr,
+      type: typeof tags["From-Process"] !== "undefined" ? "process" : "user"
+    }
+  }, [tags, initTx]);
+
   const [schedulerURL, setSchedulerURL] = useState<URL>();
 
   useEffect(() => {
@@ -67,19 +95,33 @@ export default function Process({ id }: Props) {
     })();
   }, [tags, initTx, gateway]);
 
-  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing">("incoming");
-  const [incoming, setIncoming] = useState<[]>();
-  const [hasMoreInteractions, setHasMoreInteractions] = useState(true);
+  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals">("incoming");
+
+  const [hasMoreIncoming, setHasMoreIncoming] = useState(true);
+  const [incoming, setIncoming] = useState<{ cursor: string; node: Record<string, any> }[]>([]);
+
+  const getNonce = (node: Record<string, any>) =>
+    parseInt(node.assignment.tags.find((tag: Tag) => tag.name === "Nonce")?.value) || undefined;
+
+  async function fetchIncoming() {
+    const scheduler = schedulerURL?.toString() || "https://su-router.ao-testnet.xyz/";
+    let toNonce = parseInt(incoming[incoming?.length - 1]?.cursor) - 1;
+    let fromNonce = toNonce - 100;
+
+    if (incoming.length === 0 && hasMoreIncoming) {
+      const res = await (await fetch(`${scheduler}${id}/latest`)).json();
+      toNonce = getNonce(res) || 0;
+      fromNonce = toNonce - 100;
+    }
+
+    const res = await (await fetch(`${scheduler}${id}?from-nonce=${fromNonce}&to-nonce=${toNonce}&limit=100`)).json();
+
+    setHasMoreIncoming(res.edges.length > 0 && (getNonce(res.edges[0].node) || 0) > 0);
+    setIncoming((val) => val.concat(res.edges.reverse()));
+  }
+
+  const [hasMoreOutgoing, setHasMoreOutgoing] = useState(true);
   const [outgoing, setOutgoing] = useState<OutgoingInteraction[]>([]);
-
-  useEffect(() => {
-    (async () => {
-      const scheduler = schedulerURL?.toString() || "https://ao-su-1.onrender.com/";
-      const incomingRes = await (await fetch(`${scheduler}${id}`)).json();
-
-      setIncoming(incomingRes?.edges || []);
-    })();
-  }, [schedulerURL, id]);
 
   async function fetchOutgoing() {
     const res = await arGql(`${gateway}/graphql`).getTransactions({
@@ -91,7 +133,7 @@ export default function Process({ id }: Props) {
       after: outgoing[outgoing.length - 1]?.cursor
     });
 
-    setHasMoreInteractions(res.transactions.pageInfo.hasNextPage);
+    setHasMoreOutgoing(res.transactions.pageInfo.hasNextPage);
     setOutgoing((val) => {
       // manually filter out duplicate transactions
       // for some reason, the ar.io nodes return the
@@ -116,6 +158,74 @@ export default function Process({ id }: Props) {
   useEffect(() => {
     fetchOutgoing();
   }, [id, gateway]);
+
+  const [hasMoreSpawns, setHasMoreSpawns] = useState(true);
+  const [spawns, setSpawns] = useState<Process[]>([]);
+
+  async function fetchSpawns() {
+    const res = await arGql(`${gateway}/graphql`).getTransactions({
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] },
+        { name: "Type", values: ["Process"] },
+        { name: "From-Process", values: [id] }
+      ],
+      first: 100,
+      after: spawns[spawns.length - 1]?.cursor
+    });
+
+    setHasMoreSpawns(res.transactions.pageInfo.hasNextPage);
+    setSpawns((val) => {
+      for (const tx of res.transactions.edges) {
+        if (val.find((t) => t.id === tx.node.id)) continue;
+        val.push({
+          id: tx.node.id,
+          name: getTagValue("Name", tx.node.tags) || "",
+          module: getTagValue("Module", tx.node.tags) || "",
+          block: tx.node.block?.height || 0,
+          timestamp: (tx.node.block?.timestamp || 0) * 1000,
+          cursor: tx.cursor
+        });
+      }
+
+      return val;
+    });
+  }
+
+  useEffect(() => {
+    fetchSpawns();
+  }, [id, gateway]);
+
+  const [info, setInfo] = useState<Record<string, string> | undefined>();
+  const [viewMoreInfo, setViewMoreInfo] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const res = await dryrun({
+        process: id,
+        tags: [{ name: "Action", value: "Info" }]
+      });
+
+      if (res.Messages.length === 0) {
+        return setInfo(undefined);
+      }
+
+      const infoRes: Message = res.Messages.find((msg: Message) => !!msg.Tags.find((t) => t.name === "Name")?.value) || res.Messages[0];
+      const newInfo: Record<string, string> = {};
+
+      if (infoRes.Data && infoRes.Data !== "") {
+        try {
+          newInfo.Data = JSON.stringify(JSON.parse(infoRes.Data), null, 2);
+        } catch {
+          newInfo.Data = infoRes.Data;
+        }
+      }
+      for (const tag of infoRes.Tags) {
+        newInfo[tag.name] = tag.value;
+      }
+
+      setInfo(newInfo);
+    })();
+  }, [id]);
 
   const [query, setQuery] = useState('{\n\t"tags": [\n\t\t{ "name": "Action", "value": "Balance" }\n\t],\n\t"data": ""\n}');
   const { connect, connected } = useConnection();
@@ -143,6 +253,26 @@ export default function Process({ id }: Props) {
     setLoadingQuery(false);
   }
 
+  const formatTimestamp = (t?: number) => {
+    if (!t) return "Pending...";
+    if (!dayjs(t).isToday()) { // not today
+      if (dayjs(t).isYesterday()) {
+        return "Yesterday";
+      }
+      if (dayjs(t).year() === dayjs().year()) { // same year
+        if (dayjs(t).week() === dayjs().week()) {
+          return dayjs(t).format("dddd");
+        }
+
+        return dayjs(t).format("MMMM Do");
+      }
+
+      return dayjs(t).format("DD MMMM, YYYY");
+    }
+
+    return dayjs(t).fromNow();
+  };
+
   if (!initTx || initTx == "loading") {
     return (
       <Wrapper>
@@ -157,9 +287,9 @@ export default function Process({ id }: Props) {
     <Wrapper>
       <ProcessTitle>
         Process
-        {tags.Name && (
+        {info?.Name || tags.Name && (
           <ProcessName>
-            {tags.Name}
+            {info?.Name || tags.Name}
           </ProcessName>
         )}
       </ProcessTitle>
@@ -175,10 +305,23 @@ export default function Process({ id }: Props) {
           <tr>
             <td>Owner</td>
             <td>
-              <a href={`https://viewblock.io/arweave/address/${initTx.node.owner.address}`} target="_blank" rel="noopener noreferer">
-                {formatAddress(initTx.node.owner.address)}
-                <ShareIcon />
-              </a>
+              {owner && (
+                (owner.type === "user" && (
+                  <a
+                    href={`https://viewblock.io/arweave/address/${owner.addr}`}
+                    target="_blank"
+                    rel="noopener noreferer"
+                  >
+                    {formatAddress(owner.addr)}
+                    <ShareIcon />
+                  </a>
+                )) || (
+                  <Link to={`#/process/${owner.addr}`}>
+                    {formatAddress(owner.addr)}
+                    <ShareIcon />
+                  </Link>
+                )
+              )}
             </td>
           </tr>
           <tr>
@@ -220,6 +363,32 @@ export default function Process({ id }: Props) {
               </TagsWrapper>
             </td>
           </tr>
+          {info && (
+            <tr>
+              <td>Info</td>
+              <td>
+                <Table>
+                  {Object.keys(info).slice(0, viewMoreInfo ? Object.keys(info).length : 4).map((name, i) => (
+                    <tr key={i}>
+                      <td>{name}</td>
+                      <td style={name === "Data" ? { whiteSpace: "pre-wrap" } : {}}>{info[name]}</td>
+                    </tr>
+                  ))}
+                  {Object.keys(info).length > 4 && (
+                    <tr>
+                      <td></td>
+                      <td>
+                        <a onClick={() => setViewMoreInfo(v => !v)}>
+                          View{" "}
+                          {viewMoreInfo ? "less" : "more"}
+                        </a>
+                      </td>
+                    </tr>
+                  )}
+                </Table>
+              </td>
+            </tr>
+          )}
           <tr>
             <td>Memory</td>
             <td>
@@ -230,38 +399,6 @@ export default function Process({ id }: Props) {
             </td>
           </tr>
         </Table>
-        <Query>
-          <QueryInput
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== "Tab") return;
-              e.preventDefault();
-
-              // @ts-expect-error
-              const selStart = e.target.selectionStart;
-              const textWithTab = 
-                query.substring(0, selStart) +
-                "  " +
-                // @ts-expect-error
-                query.substring(e.target.selectionEnd, query.length);
-
-              // @ts-expect-error
-              e.target.value = textWithTab;
-              // @ts-expect-error
-              e.target.setSelectionRange(selStart + 2, selStart + 2);
-              setQuery(textWithTab);
-            }}
-          ></QueryInput>
-          <Button onClick={queryProcess}>
-            {(loadingQuery && "Loading...") || (
-              <>
-                Query
-                <ArrowRightIcon />
-              </>
-            )}
-          </Button>
-        </Query>
       </Tables>
       <Title>
         Messages
@@ -279,9 +416,31 @@ export default function Process({ id }: Props) {
         >
           Outgoing
         </InteractionsMenuItem>
+        <InteractionsMenuItem
+          active={interactionsMode === "spawns"}
+          onClick={() => setInteractionsMode("spawns")}
+        >
+          Spawns
+        </InteractionsMenuItem>
+        <InteractionsMenuItem
+          active={interactionsMode === "evals"}
+          onClick={() => setInteractionsMode("evals")}
+        >
+          Evals
+        </InteractionsMenuItem>
       </InteractionsMenu>
-      {interactionsMode === "incoming" && (
-        <div>
+      {(interactionsMode === "incoming" || interactionsMode === "evals") && (
+        <InfiniteScroll
+          dataLength={incoming.length}
+          next={fetchIncoming}
+          hasMore={hasMoreIncoming}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
           <Table>
             <tr>
               <th></th>
@@ -291,7 +450,7 @@ export default function Process({ id }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {incoming && incoming.sort((a: any, b: any) => parseInt(getTagValue("Timestamp", b.node.assignment.tags) || "0") - parseInt(getTagValue("Timestamp", a.node.assignment.tags) || "0")).map((interaction: any, i) => (
+            {incoming && incoming.map((interaction: any, i) => (interactionsMode !== "evals" || getTagValue("Action", interaction.node.message.tags) === "Eval") && (
               <tr key={i}>
                 <td></td>
                 <td>
@@ -328,28 +487,67 @@ export default function Process({ id }: Props) {
                   {(() => {
                     const t = parseInt(getTagValue("Timestamp", interaction.node.assignment.tags) || "0");
 
-                    return (t && dayjs(t).fromNow()) || "Pending...";
+                    return formatTimestamp(t);
                   })()}
                 </td>
               </tr>
             ))}
           </Table>
-          {(!incoming && (
+        </InfiniteScroll>
+      )}
+      {interactionsMode === "spawns" && (
+        <InfiniteScroll
+          dataLength={spawns.length}
+          next={fetchSpawns}
+          hasMore={hasMoreSpawns}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
             <LoadingStatus>
-              Loading interactions...
+              You've reached the end...
             </LoadingStatus>
-          )) || (incoming && incoming.length === 0 && (
-            <LoadingStatus>
-              No incoming interactions
-            </LoadingStatus>
-          ))}
-        </div>
+          }
+        >
+          <Table>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Module</th>
+              <th>Block</th>
+              <th>Time</th>
+            </tr>
+            {spawns.map((process, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/process/${process.id}`}>
+                    {formatAddress(process.id)}
+                  </Link>
+                </td>
+                <td>
+                  {process.name}
+                </td>
+                <td>
+                  <a href={`https://viewblock.io/arweave/tx/${process.module}`} target="_blank" rel="noopener noreferrer">
+                    {formatAddress(process.module, 8)}
+                  </a>
+                </td>
+                <td>
+                  {process.block}
+                </td>
+                <td>
+                  {formatTimestamp(process.timestamp)}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </InfiniteScroll>
       )}
       {interactionsMode === "outgoing" && (
         <InfiniteScroll
           dataLength={outgoing.length}
           next={fetchOutgoing}
-          hasMore={hasMoreInteractions}
+          hasMore={hasMoreOutgoing}
           loader={<LoadingStatus>Loading...</LoadingStatus>}
           endMessage={
             <LoadingStatus>
@@ -386,7 +584,7 @@ export default function Process({ id }: Props) {
                   {interaction.block}
                 </td>
                 <td>
-                  {(interaction.time && dayjs(interaction.time * 1000).fromNow()) || "Pending..."}
+                  {formatTimestamp(interaction.time && interaction.time * 1000)}
                 </td>
               </tr>
             ))}
@@ -450,3 +648,20 @@ interface OutgoingInteraction {
   time?: number;
   cursor: string;
 }
+
+const Tables = styled.div`
+  width: 100%;
+
+  ${Table} {
+    width: 100%;
+  }
+
+  a {
+    display: inline-flex !important;
+    color: #04ff00 !important;
+  }
+
+  ${Table} tr td:first-child {
+    white-space: nowrap;
+  }
+`;
