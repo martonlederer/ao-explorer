@@ -13,6 +13,8 @@ import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import { Link } from "wouter";
 import dayjs from "dayjs";
+import { InteractionsMenu, InteractionsMenuItem } from "./process";
+import { LoadingStatus } from ".";
 
 dayjs.extend(relativeTime);
 
@@ -114,35 +116,47 @@ export default function Interaction({ interaction }: Props) {
   }, [process, message]);
 
   const [resultingMessages, setResultingMessages] = useState<GetTransactionsQuery["transactions"]["edges"]>([]);
+  const [linkedMessages, setLinkedMessages] = useState<GetTransactionsQuery["transactions"]["edges"]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(true);
 
   useEffect(() => {
     (async () => {
       if (!message || message === "loading" || !res) return;
-      const pushedMessages = await arGql(`${gateway}/graphql`).getTransactions({
-        tags: [
-          { name: "Data-Protocol", values: ["ao"] },
-          { name: "Type", values: ["Message"] },
-          { name: "Pushed-For", values: [tags["Pushed-For"] || message.node.id] }
-        ],
-        first: 100000
-      });
+      setLoadingMessages(true);
+      try {
+        const pushedMessages = await arGql(`${gateway}/graphql`).getTransactions({
+          tags: [
+            { name: "Data-Protocol", values: ["ao"] },
+            { name: "Type", values: ["Message"] },
+            { name: "Pushed-For", values: [tags["Pushed-For"] || message.node.id] }
+          ],
+          first: 100000
+        });
 
-      // array of references from the messages produced by this interaction
-      // this is required to filter out messages pushed for this interaction,
-      // from all messages pushed for the original message
-      const resultingRefs = res.Messages
-        .map((msg: Message) => getTagValue("Ref_", msg.Tags) || getTagValue("Reference", msg.Tags))
-        .filter((ref: string | undefined) => typeof ref === "string");
+        setLinkedMessages(pushedMessages.transactions.edges.filter(
+          (edge) => edge.node.id !== message.node.id)
+        );
 
-      setResultingMessages(pushedMessages.transactions.edges.filter(
-        (edge) => {
-          const ref = getTagValue("Ref_", edge.node.tags) || getTagValue("Reference", edge.node.tags);
+        // array of references from the messages produced by this interaction
+        // this is required to filter out messages pushed for this interaction,
+        // from all messages pushed for the original message
+        const resultingRefs = res.Messages
+          .map((msg: Message) => getTagValue("Ref_", msg.Tags) || getTagValue("Reference", msg.Tags))
+          .filter((ref: string | undefined) => typeof ref === "string");
 
-          return ref && resultingRefs.includes(ref) && edge.node.id !== message.node.id;
-        }
-      ));
+        setResultingMessages(pushedMessages.transactions.edges.filter(
+          (edge) => {
+            const ref = getTagValue("Ref_", edge.node.tags) || getTagValue("Reference", edge.node.tags);
+
+            return ref && resultingRefs.includes(ref) && edge.node.id !== message.node.id;
+          }
+        ));
+      } catch {}
+      setLoadingMessages(false);
     })();
   }, [message, gateway, res]);
+
+  const [messagesMode, setMessagesMode] = useState<"resulting" | "linked">("resulting");
 
   if (!message || message == "loading") {
     return (
@@ -265,50 +279,65 @@ export default function Interaction({ interaction }: Props) {
         </Data>
       </Tables>
       <Space />
-      {resultingMessages.length > 0 && (
-        <>
-          <ProcessID style={{ marginBottom: ".75rem" }}>
-            Resulting messages
-          </ProcessID>
-          <Table>
-            <tr>
-              <th></th>
-              <th>ID</th>
-              <th>Action</th>
-              <th>From</th>
-              <th>Block</th>
-              <th>Time</th>
-            </tr>
-            {resultingMessages.map((msg, i) => (
-              <tr key={i}>
-                <td></td>
-                <td>
-                  <Link to={`#/message/${msg.node.id}`}>
-                    {formatAddress(msg.node.id)}
-                  </Link>
-                </td>
-                <td>
-                  {msg.node.tags.find((t: Tag) => t.name === "Action")?.value || "-"}
-                </td>
-                <td>
-                  {process && (
-                    <Link to={`#/process/${process}`}>
-                      {formatAddress(process)}
-                    </Link>
-                  )}
-                </td>
-                <td>
-                  {msg.node.block?.height || "Pending..."}
-                </td>
-                <td>
-                  {(msg.node.block?.timestamp && dayjs(msg.node.block.timestamp * 1000).fromNow()) || "Pending..."}
-                </td>
-              </tr>
-            ))}
-          </Table>
-          <Space />
-        </>
+      <InteractionsMenu>
+        <InteractionsMenuItem
+          active={messagesMode === "resulting"}
+          onClick={() => setMessagesMode("resulting")}
+        >
+          Resulting messages
+        </InteractionsMenuItem>
+        <InteractionsMenuItem
+          active={messagesMode === "linked"}
+          onClick={() => setMessagesMode("linked")}
+        >
+          Linked messages
+        </InteractionsMenuItem>
+      </InteractionsMenu>
+      <Table>
+        <tr>
+          <th></th>
+          <th>ID</th>
+          <th>Action</th>
+          <th>From</th>
+          <th>Block</th>
+          <th>Time</th>
+        </tr>
+        {((messagesMode === "resulting" && resultingMessages) || linkedMessages).map((msg, i) => (
+          <tr key={i}>
+            <td></td>
+            <td>
+              <Link to={`#/message/${msg.node.id}`}>
+                {formatAddress(msg.node.id)}
+              </Link>
+            </td>
+            <td>
+              {msg.node.tags.find((t: Tag) => t.name === "Action")?.value || "-"}
+            </td>
+            <td>
+              <Link to={`#/process/${getTagValue("From-Process", msg.node.tags) || msg.node.owner.address}`}>
+                {formatAddress(getTagValue("From-Process", msg.node.tags) || msg.node.owner.address)}
+              </Link>
+            </td>
+            <td>
+              {msg.node.block?.height || "Pending..."}
+            </td>
+            <td>
+              {(msg.node.block?.timestamp && dayjs(msg.node.block.timestamp * 1000).fromNow()) || "Pending..."}
+            </td>
+          </tr>
+        ))}
+      </Table>
+      {(messagesMode === "resulting" && resultingMessages.length === 0 || messagesMode === "linked" && linkedMessages.length === 0) && !loadingMessages && (
+        <LoadingStatus>
+          No messages
+        </LoadingStatus>
       )}
+      {loadingMessages && (
+        <LoadingStatus>
+          Loading...
+        </LoadingStatus>
+      )}
+      <Space />
       <Data>
         <DataTitle>
           Result

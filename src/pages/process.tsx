@@ -973,7 +973,7 @@ export default function Process({ id }: Props) {
   );
 }
 
-const InteractionsMenu = styled.div`
+export const InteractionsMenu = styled.div`
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -981,7 +981,7 @@ const InteractionsMenu = styled.div`
   margin-bottom: 1rem;
 `;
 
-const InteractionsMenuItem = styled.p<{ active?: boolean; }>`
+export const InteractionsMenuItem = styled.p<{ active?: boolean; }>`
   font-size: .94rem;
   color: ${props => props.active ? "#04ff00" : "rgba(255, 255, 255, .7)"};
   padding: .75rem .85rem;
