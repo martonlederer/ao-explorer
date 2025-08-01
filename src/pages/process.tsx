@@ -518,7 +518,7 @@ export default function Process({ id }: Props) {
     <Wrapper>
       <ProcessTitle>
         Process
-        {info?.Name || tags.Name && (
+        {!!(info?.Name || tags.Name) && (
           <ProcessName>
             {info?.Name || tags.Name}
           </ProcessName>
