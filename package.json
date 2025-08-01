@@ -20,6 +20,7 @@
     "@linaria/core": "^4.2.10",
     "@linaria/react": "^4.3.8",
     "@permaweb/aoconnect": "^0.0.43",
+    "ao-tokens-lite": "^0.0.9",
     "arweave-graphql": "^0.0.5",
     "arweave-wallet-connector": "^1.0.2",
     "dayjs": "^1.11.10",

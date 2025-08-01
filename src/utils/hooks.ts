@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
  * Use g8way.io locally
  */
 export function useGateway() {
-  const DEFAULT_GATEWAY = "https://g8way.io"
+  const DEFAULT_GATEWAY = "https://arweave.net"
   const [gateway, setGateway] = useState(DEFAULT_GATEWAY);
 
   useEffect(() => {
