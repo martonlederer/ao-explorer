@@ -3,7 +3,7 @@ import { SearchIcon } from "@iconicicons/react";
 import { useEffect, useState } from "react";
 import { isAddress } from "../utils/format";
 import { styled } from "@linaria/react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import Button from "./Btn";
 
 export default function Nav() {
@@ -20,6 +20,9 @@ export default function Nav() {
 
   return (
     <Wrapper>
+      <Link to="/">
+        <HomeIcon src="/icon.svg" draggable={false} />
+      </Link>
       <SearchWrapper>
         <Search />
         <SearchInput
@@ -46,7 +49,7 @@ const Wrapper = styled.nav`
   right: 0;
   display: grid;
   align-items: center;
-  grid-template-columns: 10fr 1fr;
+  grid-template-columns: auto 10fr 1fr;
   border-bottom: 1px solid rgba(255, 255, 255, .1);
   padding: .93rem 10vw .92rem;
   backdrop-filter: blur(20px);
@@ -54,6 +57,17 @@ const Wrapper = styled.nav`
   margin-bottom: 1.5rem;
   gap: 1rem;
   background-color: rgba(255, 255, 255, .03);
+`;
+
+const HomeIcon = styled.img`
+  height: 1.2rem;
+  user-select: none;
+  cursor: pointer;
+  transition: all .18s ease;
+
+  &:hover {
+    opacity: .88;
+  }
 `;
 
 const SearchWrapper = styled.div`

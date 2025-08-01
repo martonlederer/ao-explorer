@@ -331,7 +331,7 @@ export default function Process({ id }: Props) {
         tags: [{ name: "Action", value: "Info" }]
       });
 
-      if (res.Messages.length === 0) {
+      if (!res?.Messages || res.Messages.length === 0) {
         return setInfo(undefined);
       }
 
