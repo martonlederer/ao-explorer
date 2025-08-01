@@ -140,7 +140,7 @@ export default function Process({ id }: Props) {
     })();
   }, [tags, initTx, gateway]);
 
-  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals" | "transfers" | "balances">("incoming");
+  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals" | "transfers" | "balances" | "holders">("incoming");
 
   const [hasMoreIncoming, setHasMoreIncoming] = useState(true);
   const [incoming, setIncoming] = useState<{ cursor: string; node: Record<string, any> }[]>([]);
@@ -403,6 +403,38 @@ export default function Process({ id }: Props) {
     fetchTokenBalances();
   }, [cachedTokens]);
 
+  const [holders, setHolders] = useState<{ addr: string; balance: bigint; }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const res = await dryrun({
+        process: id,
+        tags: [
+          { name: "Action", value: "Balances" }
+        ]
+      });
+      if (!res.Messages[0]?.Data || res.Messages[0].Data === "") {
+        return setHolders([]);
+      }
+
+      try {
+        const balances: { addr: string; balance: bigint; }[] = [];
+
+        for (const [holder, bal] of Object.entries(JSON.parse(res.Messages[0].Data))) {
+          balances.push({
+            addr: holder,
+            balance: BigInt(bal as string || 0)
+          });
+        }
+
+        setHolders(balances);
+      } catch {
+        // not balances obj
+        setHolders([]);
+      }
+    })();
+  }, [id]);
+
   // @ts-expect-error
   const [query, setQuery] = useState('{\n\t"tags": [\n\t\t{ "name": "Action", "value": "Balance" }\n\t],\n\t"data": ""\n}');
   const { connect, connected } = useConnection();
@@ -634,7 +666,45 @@ export default function Process({ id }: Props) {
         >
           Balances
         </InteractionsMenuItem>
+        {holders.length > 0 && (
+          <InteractionsMenuItem
+            active={interactionsMode === "holders"}
+            onClick={() => setInteractionsMode("holders")}
+          >
+            Holders
+          </InteractionsMenuItem>
+        )}
       </InteractionsMenu>
+      {interactionsMode === "holders" && (
+        <Table>
+          <tr>
+            <th></th>
+            <th>Holder address</th>
+            <th>Balance</th>
+          </tr>
+          {holders.map((item, i) => item.balance > 0n && (
+            <tr key={i}>
+              <td></td>
+              <td>
+                <Link to={`#/process/${item.addr}`}>
+                  {formatAddress(item.addr)}
+                </Link>
+              </td>
+              <td style={{ display: "flex", alignItems: "center" }}>
+                <span>
+                  {formatQuantity(new Quantity(item.balance, BigInt(info?.Denomination || 12)))}
+                </span>
+                {info?.Ticker && (
+                  <TokenTicker>
+                    {info.Logo && <TokenIcon src={`${gateway}/${info.Logo}`} draggable={false} />}
+                    {info.Ticker}
+                  </TokenTicker>
+                )}
+              </td>
+            </tr>
+          ))}
+        </Table>
+      )}
       {interactionsMode === "balances" && (
         <Table>
           <tr>
