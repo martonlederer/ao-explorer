@@ -1,3 +1,4 @@
+import { ClipboardIcon } from "@iconicicons/react";
 import { styled } from "@linaria/react"
 
 export default function Tag({ name, value }: Props) {
@@ -5,17 +6,46 @@ export default function Tag({ name, value }: Props) {
     <Wrapper>
       <Field>
         {name}
+        <Copy onClick={() => navigator.clipboard.writeText(name)} />
       </Field>
       <Field>
         {value}
+        <Copy onClick={() => navigator.clipboard.writeText(value)} />
       </Field>
     </Wrapper>
   );
 }
 
+export const Copy = styled(ClipboardIcon)`
+  width: 1em;
+  height: 1em;
+  color: inherit;
+  cursor: pointer;
+  transition: all .17s ease-in-out;
+
+  &:hover {
+    opacity: .8;
+  }
+
+  &:active {
+    transform: scale(.9);
+  }
+`;
+
 const Field = styled.div`
+  display: flex;
+  align-items: center;
+  gap: .23rem;
   padding: .16rem .25rem;
   font-size: .87rem;
+
+  ${Copy} {
+    display: none;
+  }
+
+  &:hover ${Copy} {
+    display: block;
+  }
 `;
 
 const Wrapper = styled.div`
