@@ -36,6 +36,51 @@ interface Process {
   cursor: string;
 }
 
+const wellKnownTokens = {
+  "7zH9dlMNoxprab9loshv3Y7WG45DOny_Vrq9KrXObdQ": {
+    name: "Ethereum Wrapped USDC",
+    ticker: "wUSDC",
+    denomination: 6n,
+    logo: "VL4_2p40RKvFOQynAMilDQ4lcwjtlK3Ll-xtRhv9GSY"
+  },
+  "7j3jUyFpTuepg_uu_sJnwLE6KiTVuA9cLrkfOp2MFlo": {
+    name: "BSC Wrapped USDT",
+    ticker: "wUSDT",
+    denomination: 18n,
+    logo: "9vHNDNa6gHxhwndjL_SZcKvXzljarHRQxhHb3sgCeME"
+  },
+  "0syT13r0s0tgPmIed95bJnuSqaD29HQNN8D3ElLSrsc": {
+    name: "AO",
+    ticker: "AO",
+    denomination: 12n,
+    logo: "UkS-mdoiG8hcAClhKK8ch4ZhEzla0mCPDOix9hpdSFE"
+  },
+  "xU9zFkq3X2ZQ6olwNVvr1vUWIjc3kXTWr7xKQD6dh10": {
+    name: "Wrapped AR",
+    ticker: "wAR",
+    denomination: 12n,
+    logo: "L99jaxRKQKJt9CqoJtPaieGPEhJD3wNhR4iGqc8amXs"
+  },
+  "cBgS-V_yGhOe9P1wCIuNSgDA_JS8l4sE5iFcPTr0TD0": {
+    name: "Wrapped ETH",
+    ticker: "wETH",
+    denomination: 18n,
+    logo: "RJ0om4TNkNM4nUsWC5KG3VkLf8HWfhsVm3tJBMke1Ws"
+  },
+  "7GoQfmSOct_aUOWKM4xbKGg6DzAmOgdKwg8Kf-CbHm4": {
+    name: "Wander",
+    ticker: "WNDR",
+    denomination: 18n,
+    logo: "xUO2tQglSYsW89aLYN8ErGivZqezoDaEn95JniaCBZk"
+  },
+  "n2MhPK0O3yEvY2zW73sqcmWqDktJxAifJDrri4qireI": {
+    name: "LiquidOps",
+    ticker: "LQD",
+    denomination: 18n,
+    logo: "iI9VnQdPXlVl967iAdCY4zJYVBfk5jpr_qab-Hzm4qI"
+  }
+};
+
 export default function Process({ id }: Props) {
   const [initTx, setInitTx] = useState<TransactionEdge | "loading">("loading");
   const gateway = useGateway();
@@ -95,7 +140,7 @@ export default function Process({ id }: Props) {
     })();
   }, [tags, initTx, gateway]);
 
-  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals" | "transfers">("incoming");
+  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals" | "transfers" | "balances">("incoming");
 
   const [hasMoreIncoming, setHasMoreIncoming] = useState(true);
   const [incoming, setIncoming] = useState<{ cursor: string; node: Record<string, any> }[]>([]);
@@ -204,7 +249,7 @@ export default function Process({ id }: Props) {
     fetchSpawns();
   }, [id, gateway]);
 
-  const [cachedTokens, setCachedTokens] = useState<Record<string, { ticker: string; denomination: bigint; logo: string; } | "pending">>({});
+  const [cachedTokens, setCachedTokens] = useState<Record<string, { name: string; ticker: string; denomination: bigint; logo: string; } | "pending">>(wellKnownTokens);
   const [transfers, setTransfers] = useState<{ id: string; dir: "in" | "out"; from: string; to: string; quantity: string; token: string; time?: number; cursor: string; }[]>([]);
   const [hasMoreTransfers, setHasMoreTransfers] = useState(true);
 
@@ -260,6 +305,7 @@ export default function Process({ id }: Props) {
       if (!res) return;
       setCachedTokens((val) => {
         val[token] = {
+          name: getTagValue("Name", res.Tags) || getTagValue("Ticker", res.Tags) || "",
           ticker: getTagValue("Ticker", res.Tags) || "",
           denomination: BigInt(getTagValue("Denomination", res.Tags) || 0),
           logo: getTagValue("Logo", res.Tags) || ""
@@ -306,6 +352,56 @@ export default function Process({ id }: Props) {
       setInfo(newInfo);
     })();
   }, [id]);
+
+  const [tokenBalances, setTokenBalances] = useState<{ token: string; balance: bigint; }[]>([]);
+
+  async function fetchTokenBalances() {
+    const res = await Promise.all(Object.entries(cachedTokens).filter(([id]) => !tokenBalances.find((bal) => bal.token === id)).map(
+      async ([tokenId]) => {
+        try {
+          const dryRunRes = await dryrun({
+            process: tokenId,
+            Owner: id,
+            tags: [
+              { name: "Action", value: "Balance" },
+              { name: "Recipient", value: id }
+            ]
+          });
+
+          return {
+            messages: dryRunRes.Messages,
+            token: tokenId
+          };
+        } catch {
+          return undefined;
+        }
+      }
+    ));
+
+    setTokenBalances((val) => {
+      for (const balRes of res) {
+        if (!balRes || !!val.find((t) => t.token === balRes.token)) continue;
+        const balanceMsg: Message = balRes.messages.find(
+          (msg: Message) => !!getTagValue("Balance", msg.Tags)
+        );
+        val.push({
+          token: balRes.token,
+          balance: BigInt(getTagValue("Balance", balanceMsg.Tags) || 0)
+        });
+      }
+
+      return val;
+    });
+  }
+
+  useEffect(() => {
+    console.log(tokenBalances)
+    setTokenBalances([]);
+    fetchTokenBalances();
+  }, [id]);
+  useEffect(() => {
+    fetchTokenBalances();
+  }, [cachedTokens]);
 
   // @ts-expect-error
   const [query, setQuery] = useState('{\n\t"tags": [\n\t\t{ "name": "Action", "value": "Balance" }\n\t],\n\t"data": ""\n}');
@@ -356,12 +452,15 @@ export default function Process({ id }: Props) {
   };
 
   function formatQuantity(qty: Quantity) {
+    if (Quantity.eq(qty, new Quantity(0, 0n))) {
+      return "0";
+    }
     let maximumFractionDigits = 2;
     if (Quantity.lt(qty, new Quantity(0, qty.denomination).fromString("0.01"))) {
       maximumFractionDigits = Number(qty.denomination)
     }
     if (qty.denomination > 8 && Quantity.lt(qty, new Quantity(0, qty.denomination).fromString("0." + "0".repeat(7) + "1"))) {
-      return "0." + "0".repeat(7) + "1";
+      return ">0." + "0".repeat(7) + "1";
     }
 
     // @ts-expect-error
@@ -529,7 +628,45 @@ export default function Process({ id }: Props) {
         >
           Transfers
         </InteractionsMenuItem>
+        <InteractionsMenuItem
+          active={interactionsMode === "balances"}
+          onClick={() => setInteractionsMode("balances")}
+        >
+          Balances
+        </InteractionsMenuItem>
       </InteractionsMenu>
+      {interactionsMode === "balances" && (
+        <Table>
+          <tr>
+            <th></th>
+            <th>Token name</th>
+            <th>Balance</th>
+          </tr>
+          {tokenBalances.map((balance, i) => balance.balance > 0n && (
+            <tr key={i}>
+              <td></td>
+              <td>
+                <Link to={`#/process/${balance.token}`}>
+                  {//@ts-expect-error
+                    (cachedTokens[balance.token] !== "pending" && cachedTokens[balance.token]?.name) || formatAddress(balance.token)}
+                </Link>
+              </td>
+              <td style={{ display: "flex", alignItems: "center" }}>
+                <span>
+                  {// @ts-expect-error
+                    formatQuantity(new Quantity(balance.balance, (cachedTokens[balance.token] !== "pending" && cachedTokens[balance.token]?.denomination) || 12n))}
+                </span>
+                {cachedTokens[balance.token] && cachedTokens[balance.token] !== "pending" && (
+                  <TokenTicker>
+                    <TokenIcon src={`${gateway}/${(cachedTokens[balance.token] as any).logo}`} draggable={false} />
+                    {(cachedTokens[balance.token] as any).ticker}
+                  </TokenTicker>
+                )}
+              </td>
+            </tr>
+          ))}
+        </Table>
+      )}
       {interactionsMode === "transfers" && (
         <InfiniteScroll
           dataLength={transfers.length}
