@@ -1621,6 +1621,11 @@ ansi-styles@^3.2.1:
   dependencies:
     color-convert "^1.9.0"
 
+ao-tokens-lite@^0.0.9:
+  version "0.0.9"
+  resolved "https://registry.yarnpkg.com/ao-tokens-lite/-/ao-tokens-lite-0.0.9.tgz#bc8591bf38a6b76fc79e89bf11fb425b63f86c37"
+  integrity sha512-guezLhr6x90446gOlI37R8TqBHn10OCRkzlO5NNLEHp6ZKgD1adsQ//rV9M4WJvr1miSdJC2Qbz+fiUP+Zn5hQ==
+
 arconnect@^0.4.2:
   version "0.4.2"
   resolved "https://registry.yarnpkg.com/arconnect/-/arconnect-0.4.2.tgz#83de7638fb46183e82d7ec7efb5594c5f7cdc806"

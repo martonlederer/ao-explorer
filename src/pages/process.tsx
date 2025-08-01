@@ -19,6 +19,7 @@ import { LoadingStatus } from "./index";
 import Table from "../components/Table";
 import dayjs from "dayjs";
 import { Message } from "./interaction";
+import { Quantity } from "ao-tokens-lite";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -94,7 +95,7 @@ export default function Process({ id }: Props) {
     })();
   }, [tags, initTx, gateway]);
 
-  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals">("incoming");
+  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals" | "transfers">("incoming");
 
   const [hasMoreIncoming, setHasMoreIncoming] = useState(true);
   const [incoming, setIncoming] = useState<{ cursor: string; node: Record<string, any> }[]>([]);
@@ -118,6 +119,11 @@ export default function Process({ id }: Props) {
     setHasMoreIncoming(res.edges.length > 0 && (getNonce(res.edges[0].node) || 0) > 0);
     setIncoming((val) => val.concat(res.edges.reverse()));
   }
+
+  useEffect(() => {
+    setIncoming([]);
+    setHasMoreIncoming(true);
+  }, [id]);
 
   const [hasMoreOutgoing, setHasMoreOutgoing] = useState(true);
   const [outgoing, setOutgoing] = useState<OutgoingInteraction[]>([]);
@@ -155,6 +161,8 @@ export default function Process({ id }: Props) {
   }
 
   useEffect(() => {
+    setOutgoing([]);
+    setHasMoreOutgoing(true);
     fetchOutgoing();
   }, [id, gateway]);
 
@@ -191,7 +199,80 @@ export default function Process({ id }: Props) {
   }
 
   useEffect(() => {
+    setSpawns([]);
+    setHasMoreSpawns(true);
     fetchSpawns();
+  }, [id, gateway]);
+
+  const [cachedTokens, setCachedTokens] = useState<Record<string, { ticker: string; denomination: bigint; logo: string; } | "pending">>({});
+  const [transfers, setTransfers] = useState<{ id: string; dir: "in" | "out"; from: string; to: string; quantity: string; token: string; time?: number; cursor: string; }[]>([]);
+  const [hasMoreTransfers, setHasMoreTransfers] = useState(true);
+
+  async function fetchTransfers() {
+    const res = await arGql(`${gateway}/graphql`).getTransactions({
+      recipients: [id],
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] },
+        { name: "Type", values: ["Message"] },
+        { name: "Action", values: ["Credit-Notice", "Debit-Notice"] }
+      ],
+      first: 100,
+      after: transfers[transfers.length - 1]?.cursor
+    });
+
+    setHasMoreTransfers(res.transactions.pageInfo.hasNextPage);
+    setTransfers((val) => {
+      for (const tx of res.transactions.edges) {
+        if (val.find((t) => t.id === tx.node.id)) continue;
+        const dir = getTagValue("Action", tx.node.tags) === "Credit-Notice" ? "in" : "out";
+        const token = getTagValue("Forwarded-For", tx.node.tags) || getTagValue("From-Process", tx.node.tags) || tx.node.owner.address;
+
+        cacheToken(token);
+        val.push({
+          id: tx.node.id,
+          dir,
+          from: dir === "in" ? getTagValue("Sender", tx.node.tags) || "" : id,
+          to: dir === "out" ? getTagValue("Recipient", tx.node.tags) || "" : id,
+          quantity: getTagValue("Quantity", tx.node.tags) || "0",
+          token,
+          time: tx.node.block?.timestamp,
+          cursor: tx.cursor
+        });
+      }
+
+      return val;
+    });
+  }
+
+  async function cacheToken(token: string) {
+    if (cachedTokens[token]) return;
+    setCachedTokens((val) => {
+      val[token] = "pending";
+      return val;
+    });
+
+    try {
+      const res: Message | undefined = (await dryrun({
+        process: token,
+        tags: [{ name: "Action", value: "Info" }]
+      })).Messages.find((msg: Message) => !!getTagValue("Ticker", msg.Tags));
+
+      if (!res) return;
+      setCachedTokens((val) => {
+        val[token] = {
+          ticker: getTagValue("Ticker", res.Tags) || "",
+          denomination: BigInt(getTagValue("Denomination", res.Tags) || 0),
+          logo: getTagValue("Logo", res.Tags) || ""
+        };
+        return val;
+      });
+    } catch {}
+  }
+
+  useEffect(() => {
+    setTransfers([]);
+    setHasMoreTransfers(true);
+    fetchTransfers();
   }, [id, gateway]);
 
   const [info, setInfo] = useState<Record<string, string> | undefined>();
@@ -273,6 +354,19 @@ export default function Process({ id }: Props) {
 
     return dayjs(t).fromNow();
   };
+
+  function formatQuantity(qty: Quantity) {
+    let maximumFractionDigits = 2;
+    if (Quantity.lt(qty, new Quantity(0, qty.denomination).fromString("0.01"))) {
+      maximumFractionDigits = Number(qty.denomination)
+    }
+    if (qty.denomination > 8 && Quantity.lt(qty, new Quantity(0, qty.denomination).fromString("0." + "0".repeat(7) + "1"))) {
+      return "0." + "0".repeat(7) + "1";
+    }
+
+    // @ts-expect-error
+    return qty.toLocaleString(undefined, { maximumFractionDigits });
+  }
 
   if (!initTx || initTx == "loading") {
     return (
@@ -429,7 +523,75 @@ export default function Process({ id }: Props) {
         >
           Evals
         </InteractionsMenuItem>
+        <InteractionsMenuItem
+          active={interactionsMode === "transfers"}
+          onClick={() => setInteractionsMode("transfers")}
+        >
+          Transfers
+        </InteractionsMenuItem>
       </InteractionsMenu>
+      {interactionsMode === "transfers" && (
+        <InfiniteScroll
+          dataLength={transfers.length}
+          next={fetchTransfers}
+          hasMore={hasMoreTransfers}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
+          <Table>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Amount</th>
+              <th>Time</th>
+            </tr>
+            {transfers.map((transfer, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/message/${transfer.id}`}>
+                    {formatAddress(transfer.id)}
+                  </Link>
+                </td>
+                <td>
+                  <Link to={`#/process/${transfer.from}`}>
+                    {formatAddress(transfer.from, 8)}
+                  </Link>
+                </td>
+                <td>
+                  <Link to={`#/process/${transfer.to}`}>
+                    {formatAddress(transfer.to, 8)}
+                  </Link>
+                </td>
+                <td>
+                  <Link to={`#/process/${transfer.to}`}>
+                    <span style={{ color: transfer.dir === "out" ? "#ff0000" : "#00db5f" }}>
+                      {transfer.dir === "out" ? "-" : "+"}
+                      {//@ts-expect-error
+                        formatQuantity(new Quantity(transfer.quantity, cachedTokens[transfer.token] !== "pending" ? cachedTokens[transfer.token]?.denomination || 12 : 12))}
+                    </span>
+                    {typeof cachedTokens[transfer.token] !== "undefined" && cachedTokens[transfer.token] !== "pending" && (
+                      <TokenTicker>
+                        <TokenIcon src={`${gateway}/${(cachedTokens[transfer.token] as any).logo}`} draggable={false} />
+                        {(cachedTokens[transfer.token] as any).ticker}
+                      </TokenTicker>
+                    )}
+                  </Link>
+                </td>
+                <td>
+                  {formatTimestamp(transfer.time ? transfer.time * 1000 : undefined)}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </InfiniteScroll>
+      )}
       {(interactionsMode === "incoming" || interactionsMode === "evals") && (
         <InfiniteScroll
           dataLength={incoming.length}
@@ -667,4 +829,19 @@ const Tables = styled.div`
   ${Table} tr td:first-child {
     white-space: nowrap;
   }
+`;
+
+const TokenTicker = styled.span`
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: .2rem;
+`;
+
+const TokenIcon = styled.img`
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 100%;
+  object-fit: cover;
+  user-select: none;
 `;
