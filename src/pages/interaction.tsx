@@ -299,6 +299,7 @@ export default function Interaction({ interaction }: Props) {
           <th>ID</th>
           <th>Action</th>
           <th>From</th>
+          <th>To</th>
           <th>Block</th>
           <th>Time</th>
         </tr>
@@ -316,6 +317,11 @@ export default function Interaction({ interaction }: Props) {
             <td>
               <Link to={`#/process/${getTagValue("From-Process", msg.node.tags) || msg.node.owner.address}`}>
                 {formatAddress(getTagValue("From-Process", msg.node.tags) || msg.node.owner.address)}
+              </Link>
+            </td>
+            <td>
+              <Link to={`#/process/${msg.node.recipient}`}>
+                {formatAddress(msg.node.recipient)}
               </Link>
             </td>
             <td>

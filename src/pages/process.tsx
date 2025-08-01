@@ -36,6 +36,26 @@ interface Process {
   cursor: string;
 }
 
+export const formatTimestamp = (t?: number) => {
+  if (!t) return "Pending...";
+  if (!dayjs(t).isToday()) { // not today
+    if (dayjs(t).isYesterday()) {
+      return "Yesterday";
+    }
+    if (dayjs(t).year() === dayjs().year()) { // same year
+      if (dayjs(t).week() === dayjs().week()) {
+        return dayjs(t).format("dddd");
+      }
+
+      return dayjs(t).format("MMMM Do");
+    }
+
+    return dayjs(t).format("DD MMMM, YYYY");
+  }
+
+  return dayjs(t).fromNow();
+};
+
 const wellKnownTokens = {
   "7zH9dlMNoxprab9loshv3Y7WG45DOny_Vrq9KrXObdQ": {
     name: "Ethereum Wrapped USDC",
@@ -467,26 +487,6 @@ export default function Process({ id }: Props) {
     }
     setLoadingQuery(false);
   }
-
-  const formatTimestamp = (t?: number) => {
-    if (!t) return "Pending...";
-    if (!dayjs(t).isToday()) { // not today
-      if (dayjs(t).isYesterday()) {
-        return "Yesterday";
-      }
-      if (dayjs(t).year() === dayjs().year()) { // same year
-        if (dayjs(t).week() === dayjs().week()) {
-          return dayjs(t).format("dddd");
-        }
-
-        return dayjs(t).format("MMMM Do");
-      }
-
-      return dayjs(t).format("DD MMMM, YYYY");
-    }
-
-    return dayjs(t).fromNow();
-  };
 
   function formatQuantity(qty: Quantity) {
     if (Quantity.eq(qty, new Quantity(0, 0n))) {

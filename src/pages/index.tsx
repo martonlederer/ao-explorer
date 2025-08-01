@@ -1,15 +1,26 @@
 import InfiniteScroll from "react-infinite-scroll-component";
-import { formatAddress } from "../utils/format";
+import { formatAddress, getTagValue } from "../utils/format";
 import { useEffect, useState } from "react";
 import { useGateway } from "../utils/hooks";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import gql from "arweave-graphql";
 import { Link } from "wouter";
+import { InteractionsMenu, InteractionsMenuItem, formatTimestamp } from "./process";
+
+interface MessageListItem {
+  id: string;
+  action: string;
+  from: string;
+  to: string;
+  block?: number;
+  time?: number;
+  cursor: string;
+}
 
 export default function Home() {
   const [processes, setProcesses] = useState<Process[]>([]);
-  const [hasNextPage, setHasNextPage] = useState<boolean>(true);
+  const [hasMoreProcesses, setHasMoreProcesses] = useState(true);
   const gateway = useGateway();
 
   async function fetchProcesses() {
@@ -22,7 +33,7 @@ export default function Home() {
       after: processes[processes.length - 1]?.cursor
     });
 
-    setHasNextPage(res.transactions.pageInfo.hasNextPage);
+    setHasMoreProcesses(res.transactions.pageInfo.hasNextPage);
     setProcesses((val) => [
       ...val,
       ...res.transactions.edges.map((tx) => ({
@@ -39,46 +50,148 @@ export default function Home() {
     fetchProcesses()
   }, []);
 
+  const [mode, setMode] = useState<"processes" | "messages">("processes");
+
+  const [messages, setMessages] = useState<MessageListItem[]>([]);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+
+  async function fetchMessages() {
+    const res = await gql(`${gateway}/graphql`).getTransactions({
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] },
+        { name: "Type", values: ["Message"] }
+      ],
+      first: 100,
+      after: messages[messages.length - 1]?.cursor
+    });
+
+    setHasMoreMessages(res.transactions.pageInfo.hasNextPage);
+    setMessages((val) => [
+      ...val,
+      ...res.transactions.edges.map((tx) => ({
+        id: tx.node.id,
+        action: getTagValue("Action", tx.node.tags) || "-",
+        from: getTagValue("From-Process", tx.node.tags) || tx.node.owner.address,
+        to: tx.node.recipient,
+        block: tx.node.block?.height,
+        time: tx.node.block?.timestamp ? tx.node.block.timestamp * 1000 : undefined,
+        cursor: tx.cursor
+      }))
+    ]);
+  }
+
+  useEffect(() => {
+    fetchMessages()
+  }, []);
+
   return (
     <Wrapper>
-      <InfiniteScroll
-        dataLength={processes.length}
-        next={fetchProcesses}
-        hasMore={hasNextPage}
-        loader={<LoadingStatus>Loading...</LoadingStatus>}
-        endMessage={
-          <LoadingStatus>
-            You've reached the end...
-          </LoadingStatus>
-        }
-      >
-        <Table>
-          <tr>
-            <th></th>
-            <th>Process ID</th>
-            <th>Name</th>
-            <th>Creator</th>
-            <th>Scheduler</th>
-          </tr>
-          {processes.map((process, i) => (
-            <tr key={i}>
-              <td></td>
-              <td>
-                <Link to={`#/process/${process.id}`}>
-                  {formatAddress(process.id, 11)}
-                </Link>
-              </td>
-              <td>
-                <Link to={`#/process/${process.id}`}>
-                  {process.name}
-                </Link>
-              </td>
-              <td>{formatAddress(process.creator, 7)}</td>
-              <td>{formatAddress(process.scheduler, 7)}</td>
+      <InteractionsMenu>
+        <InteractionsMenuItem
+          active={mode === "processes"}
+          onClick={() => setMode("processes")}
+        >
+          Processes
+        </InteractionsMenuItem>
+        <InteractionsMenuItem
+          active={mode === "messages"}
+          onClick={() => setMode("messages")}
+        >
+          Messages
+        </InteractionsMenuItem>
+      </InteractionsMenu>
+      {mode === "processes" && (
+        <InfiniteScroll
+          dataLength={processes.length}
+          next={fetchProcesses}
+          hasMore={hasMoreProcesses}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
+          <Table>
+            <tr>
+              <th></th>
+              <th>Process ID</th>
+              <th>Name</th>
+              <th>Creator</th>
+              <th>Scheduler</th>
             </tr>
-          ))}
-        </Table>
-      </InfiniteScroll>
+            {processes.map((process, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/process/${process.id}`}>
+                    {formatAddress(process.id, 11)}
+                  </Link>
+                </td>
+                <td>
+                  <Link to={`#/process/${process.id}`}>
+                    {process.name}
+                  </Link>
+                </td>
+                <td>{formatAddress(process.creator, 7)}</td>
+                <td>{formatAddress(process.scheduler, 7)}</td>
+              </tr>
+            ))}
+          </Table>
+        </InfiniteScroll>
+      )}
+      {mode === "messages" && (
+        <InfiniteScroll
+          dataLength={messages.length}
+          next={fetchMessages}
+          hasMore={hasMoreMessages}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
+          <Table>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Action</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Block</th>
+              <th>Time</th>
+            </tr>
+            {messages.map((message, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/message/${message.id}`}>
+                    {formatAddress(message.id, 8)}
+                  </Link>
+                </td>
+                <td>{message.action}</td>
+                <td>
+                  <Link to={`#/process/${message.from}`}>
+                    {formatAddress(message.from, 8)}
+                  </Link>
+                </td>
+                <td>
+                  <Link to={`#/process/${message.to}`}>
+                    {formatAddress(message.to, 8)}
+                  </Link>
+                </td>
+                <td>
+                  {message.block || ""}
+                </td>
+                <td>
+                  {formatTimestamp(message.time)}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </InfiniteScroll>
+      )}
     </Wrapper>
   )
 }
