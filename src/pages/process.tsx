@@ -452,7 +452,7 @@ export default function Process({ id }: Props) {
           });
         }
 
-        setHolders(balances);
+        setHolders(balances.sort((a, b) => a.balance > b.balance ? -1 : 1));
       } catch {
         // not balances obj
         setHolders([]);
@@ -684,12 +684,14 @@ export default function Process({ id }: Props) {
         <Table>
           <tr>
             <th></th>
+            <th></th>
             <th>Holder address</th>
             <th>Balance</th>
           </tr>
           {holders.map((item, i) => item.balance > 0n && (
             <tr key={i}>
               <td></td>
+              <td>{i + 1}.</td>
               <td>
                 <Link to={`#/process/${item.addr}`}>
                   {formatAddress(item.addr)}

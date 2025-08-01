@@ -129,7 +129,7 @@ export default function Home() {
                   </Link>
                 </td>
                 <td>
-                  <Link to={`#/process/${process.id}`}>
+                  <Link to={`#/process/${process.id}`} style={{ textOverflow: "ellipsis", maxWidth: "7rem", overflow: "hidden", whiteSpace: "nowrap" }}>
                     {process.name}
                   </Link>
                 </td>
