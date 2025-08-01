@@ -354,44 +354,49 @@ export default function Process({ id }: Props) {
   }, [id]);
 
   const [tokenBalances, setTokenBalances] = useState<{ token: string; balance: bigint; }[]>([]);
+  const [loadingTokenBalances, setLoadingTokenBalances] = useState(true);
 
   async function fetchTokenBalances() {
-    const res = await Promise.all(Object.entries(cachedTokens).filter(([id]) => !tokenBalances.find((bal) => bal.token === id)).map(
-      async ([tokenId]) => {
-        try {
-          const dryRunRes = await dryrun({
-            process: tokenId,
-            Owner: id,
-            tags: [
-              { name: "Action", value: "Balance" },
-              { name: "Recipient", value: id }
-            ]
-          });
+    setLoadingTokenBalances(true);
+    try {
+      const res = await Promise.all(Object.entries(cachedTokens).filter(([id]) => !tokenBalances.find((bal) => bal.token === id)).map(
+        async ([tokenId]) => {
+          try {
+            const dryRunRes = await dryrun({
+              process: tokenId,
+              Owner: id,
+              tags: [
+                { name: "Action", value: "Balance" },
+                { name: "Recipient", value: id }
+              ]
+            });
 
-          return {
-            messages: dryRunRes.Messages,
-            token: tokenId
-          };
-        } catch {
-          return undefined;
+            return {
+              messages: dryRunRes.Messages,
+              token: tokenId
+            };
+          } catch {
+            return undefined;
+          }
         }
-      }
-    ));
+      ));
 
-    setTokenBalances((val) => {
-      for (const balRes of res) {
-        if (!balRes || !!val.find((t) => t.token === balRes.token)) continue;
-        const balanceMsg: Message = balRes.messages.find(
-          (msg: Message) => !!getTagValue("Balance", msg.Tags)
-        );
-        val.push({
-          token: balRes.token,
-          balance: BigInt(getTagValue("Balance", balanceMsg.Tags) || 0)
-        });
-      }
+      setTokenBalances((val) => {
+        for (const balRes of res) {
+          if (!balRes || !!val.find((t) => t.token === balRes.token)) continue;
+          const balanceMsg: Message = balRes.messages.find(
+            (msg: Message) => !!getTagValue("Balance", msg.Tags)
+          );
+          val.push({
+            token: balRes.token,
+            balance: BigInt(getTagValue("Balance", balanceMsg.Tags) || 0)
+          });
+        }
 
-      return val;
-    });
+        return val;
+      });
+    } catch {}
+    setLoadingTokenBalances(false);
   }
 
   useEffect(() => {
@@ -706,36 +711,39 @@ export default function Process({ id }: Props) {
         </Table>
       )}
       {interactionsMode === "balances" && (
-        <Table>
-          <tr>
-            <th></th>
-            <th>Token name</th>
-            <th>Balance</th>
-          </tr>
-          {tokenBalances.map((balance, i) => balance.balance > 0n && (
-            <tr key={i}>
-              <td></td>
-              <td>
-                <Link to={`#/process/${balance.token}`}>
-                  {//@ts-expect-error
-                    (cachedTokens[balance.token] !== "pending" && cachedTokens[balance.token]?.name) || formatAddress(balance.token)}
-                </Link>
-              </td>
-              <td style={{ display: "flex", alignItems: "center" }}>
-                <span>
-                  {// @ts-expect-error
-                    formatQuantity(new Quantity(balance.balance, (cachedTokens[balance.token] !== "pending" && cachedTokens[balance.token]?.denomination) || 12n))}
-                </span>
-                {cachedTokens[balance.token] && cachedTokens[balance.token] !== "pending" && (
-                  <TokenTicker>
-                    <TokenIcon src={`${gateway}/${(cachedTokens[balance.token] as any).logo}`} draggable={false} />
-                    {(cachedTokens[balance.token] as any).ticker}
-                  </TokenTicker>
-                )}
-              </td>
+        <>
+          <Table>
+            <tr>
+              <th></th>
+              <th>Token name</th>
+              <th>Balance</th>
             </tr>
-          ))}
-        </Table>
+            {tokenBalances.map((balance, i) => balance.balance > 0n && (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/process/${balance.token}`}>
+                    {//@ts-expect-error
+                      (cachedTokens[balance.token] !== "pending" && cachedTokens[balance.token]?.name) || formatAddress(balance.token)}
+                  </Link>
+                </td>
+                <td style={{ display: "flex", alignItems: "center" }}>
+                  <span>
+                    {// @ts-expect-error
+                      formatQuantity(new Quantity(balance.balance, (cachedTokens[balance.token] !== "pending" && cachedTokens[balance.token]?.denomination) || 12n))}
+                  </span>
+                  {cachedTokens[balance.token] && cachedTokens[balance.token] !== "pending" && (
+                    <TokenTicker>
+                      <TokenIcon src={`${gateway}/${(cachedTokens[balance.token] as any).logo}`} draggable={false} />
+                      {(cachedTokens[balance.token] as any).ticker}
+                    </TokenTicker>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </Table>
+          {loadingTokenBalances && <LoadingStatus>Loading...</LoadingStatus>}
+        </>
       )}
       {interactionsMode === "transfers" && (
         <InfiniteScroll
