@@ -2,7 +2,6 @@ import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo,
 import { DownloadIcon, ShareIcon } from "@iconicicons/react";
 import { createDataItemSigner, message, dryrun, result } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
-import arGql, { Tag, TransactionEdge } from "arweave-graphql";
 import { formatAddress, getTagValue } from "../utils/format";
 import { useActiveAddress, useConnection } from "@arweave-wallet-kit/react";
 import advancedFormat from "dayjs/plugin/advancedFormat";
@@ -24,6 +23,9 @@ import { Quantity } from "ao-tokens-lite";
 import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
+import { client } from "../utils/gql_client";
+import { GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
+import { GetSchedulerLocation, GetSpawnMessage, GetSpawnedBy, Tag } from "../queries/processes";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -106,17 +108,18 @@ const wellKnownTokens = {
 };
 
 export default function Process({ id }: Props) {
-  const [initTx, setInitTx] = useState<TransactionEdge | "loading">("loading");
+  const [initTx, setInitTx] = useState<TransactionNode | "loading">("loading");
   const gateway = useGateway();
 
   useEffect(() => {
     (async () => {
       setInitTx("loading");
-      const res = await arGql(`${gateway}/graphql`).getTransactions({
-        ids: [id]
+      const res = await client.query({
+        query: GetSpawnMessage,
+        variables: { id }
       });
-
-      setInitTx(res.transactions.edges[0] as TransactionEdge);
+console.log(res)
+      setInitTx(res.data.transactions.edges[0]?.node as TransactionNode);
     })();
   }, [id, gateway]);
 
@@ -126,7 +129,7 @@ export default function Process({ id }: Props) {
     if (!initTx || initTx == "loading")
       return tagRecord;
 
-    for (const tag of initTx.node.tags) {
+    for (const tag of initTx.tags) {
       tagRecord[tag.name] = tag.value
     }
 
@@ -134,8 +137,8 @@ export default function Process({ id }: Props) {
   }, [initTx]);
 
   const owner = useMemo(() => {
-    if (initTx === "loading") return undefined;
-    const ownerAddr = tags["From-Process"] || initTx.node.owner.address;
+    if (initTx === "loading" || !initTx) return undefined;
+    const ownerAddr = tags["From-Process"] || initTx.owner.address;
 
     return {
       addr: ownerAddr,
@@ -149,15 +152,12 @@ export default function Process({ id }: Props) {
     (async () => {
       if (!initTx || initTx == "loading") return;
 
-      const res = await arGql(`${gateway}/graphql`).getTransactions({
-        owners: [tags.Scheduler],
-        tags: [
-          { name: "Data-Protocol", values: ["ao"] },
-          { name: "Type", values: ["Scheduler-Location"] },
-        ]
+      const res = await client.query({
+        query: GetSchedulerLocation,
+        variables: { id: tags.Scheduler }
       });
 
-      const url = res?.transactions?.edges?.[0]?.node?.tags?.find((t) => t.name === "Url")?.value;
+      const url = res?.data?.transactions?.edges?.[0]?.node?.tags?.find((t) => t.name === "Url")?.value;
       if (!url) return;
 
       setSchedulerURL(new URL(url));
@@ -198,22 +198,21 @@ export default function Process({ id }: Props) {
   const [outgoing, setOutgoing] = useState<OutgoingInteraction[]>([]);
 
   async function fetchOutgoing() {
-    const res = await arGql(`${gateway}/graphql`).getTransactions({
-      tags: [
-        { name: "Data-Protocol", values: ["ao"] },
-        { name: "From-Process", values: [id] }
-      ],
-      first: 100,
-      after: outgoing[outgoing.length - 1]?.cursor
+    const res = await client.query({
+      query: GetOutgoingMessages,
+      variables: {
+        process: id,
+        cursor: outgoing[outgoing.length - 1]?.cursor
+      }
     });
 
-    setHasMoreOutgoing(res.transactions.pageInfo.hasNextPage);
+    setHasMoreOutgoing(res.data.transactions.pageInfo.hasNextPage);
     setOutgoing((val) => {
       // manually filter out duplicate transactions
       // for some reason, the ar.io nodes return the
       // same transaction multiple times for certain
       // queries
-      for (const tx of res.transactions.edges) {
+      for (const tx of res.data.transactions.edges) {
         if (val.find((t) => t.id === tx.node.id)) continue;
         val.push({
           id: tx.node.id,
@@ -239,19 +238,17 @@ export default function Process({ id }: Props) {
   const [spawns, setSpawns] = useState<Process[]>([]);
 
   async function fetchSpawns() {
-    const res = await arGql(`${gateway}/graphql`).getTransactions({
-      tags: [
-        { name: "Data-Protocol", values: ["ao"] },
-        { name: "Type", values: ["Process"] },
-        { name: "From-Process", values: [id] }
-      ],
-      first: 100,
-      after: spawns[spawns.length - 1]?.cursor
+    const res = await client.query({
+      query: GetSpawnedBy,
+      variables: {
+        process: id,
+        cursor: spawns[spawns.length - 1]?.cursor
+      }
     });
 
-    setHasMoreSpawns(res.transactions.pageInfo.hasNextPage);
+    setHasMoreSpawns(res.data.transactions.pageInfo.hasNextPage);
     setSpawns((val) => {
-      for (const tx of res.transactions.edges) {
+      for (const tx of res.data.transactions.edges) {
         if (val.find((t) => t.id === tx.node.id)) continue;
         val.push({
           id: tx.node.id,
@@ -278,20 +275,17 @@ export default function Process({ id }: Props) {
   const [hasMoreTransfers, setHasMoreTransfers] = useState(true);
 
   async function fetchTransfers() {
-    const res = await arGql(`${gateway}/graphql`).getTransactions({
-      recipients: [id],
-      tags: [
-        { name: "Data-Protocol", values: ["ao"] },
-        { name: "Type", values: ["Message"] },
-        { name: "Action", values: ["Credit-Notice", "Debit-Notice"] }
-      ],
-      first: 100,
-      after: transfers[transfers.length - 1]?.cursor
+    const res = await client.query({
+      query: GetTransfersFor,
+      variables: {
+        process: id,
+        cursor: transfers[transfers.length - 1]?.cursor
+      }
     });
 
-    setHasMoreTransfers(res.transactions.pageInfo.hasNextPage);
+    setHasMoreTransfers(res.data.transactions.pageInfo.hasNextPage);
     setTransfers((val) => {
-      for (const tx of res.transactions.edges) {
+      for (const tx of res.data.transactions.edges) {
         if (val.find((t) => t.id === tx.node.id)) continue;
         const dir = getTagValue("Action", tx.node.tags) === "Credit-Notice" ? "in" : "out";
         const token = getTagValue("Forwarded-For", tx.node.tags) || getTagValue("From-Process", tx.node.tags) || tx.node.owner.address;
