@@ -86,6 +86,34 @@ export default function Home() {
   }, []);
 
   const [markedProcesses] = useContext(MarkedContext);
+  const [markedProcessDatas, setMarkedProcessDatas] = useState<Process[]>([]);
+  const [loadingMarkedProcessDatas, setLoadingMarkedProcessDatas] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      if (markedProcesses.length === 0) return;
+      setLoadingMarkedProcessDatas(true);
+      try {
+        const res = await gql(`${gateway}/graphql`).getTransactions({
+          ids: markedProcesses,
+          tags: [
+            { name: "Data-Protocol", values: ["ao"] },
+            { name: "Type", values: ["Process"] }
+          ],
+          first: 100
+        });
+
+        setMarkedProcessDatas(res.transactions.edges.map((tx) => ({
+          id: tx.node.id,
+          name: tx.node.tags.find((tag) => tag.name === "Name")?.value || "-",
+          creator: tx.node.owner.address,
+          scheduler: tx.node.tags.find((tag) => tag.name === "Scheduler")?.value || "-",
+          cursor: tx.cursor
+        })));
+      } catch {}
+      setLoadingMarkedProcessDatas(false);
+    })();
+  }, [markedProcesses]);
 
   return (
     <Wrapper>
@@ -95,29 +123,28 @@ export default function Home() {
           <Table style={{ marginBottom: "2rem" }}>
             <tr>
               <th></th>
-              <th>Process ID</th>
               <th>Name</th>
+              <th>ID</th>
               <th>Creator</th>
-              <th>Scheduler</th>
             </tr>
-            {markedProcesses.map((id, i) => (
+            {markedProcessDatas.map((process, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/process/${id}`}>
-                    {formatAddress(id, 11)}
+                  <Link to={`#/process/${process.id}`}>
+                    {process.name}
                   </Link>
                 </td>
                 <td>
-                  <Link to={`#/process/${id}`} style={{ textOverflow: "ellipsis", maxWidth: "7rem", overflow: "hidden", whiteSpace: "nowrap" }}>
-                    Process name
+                  <Link to={`#/process/${process.id}`}>
+                    {formatAddress(process.id, 7)}
                   </Link>
                 </td>
-                <td>{formatAddress(id, 7)}</td>
-                <td>{formatAddress(id, 7)}</td>
+                <td>{formatAddress(process.creator, 7)}</td>
               </tr>
             ))}
           </Table>
+          {loadingMarkedProcessDatas && <LoadingStatus>Loading...</LoadingStatus>}
         </>
       )}
       <InteractionsMenu>
