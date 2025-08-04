@@ -1,12 +1,13 @@
 import InfiniteScroll from "react-infinite-scroll-component";
 import { formatAddress, getTagValue } from "../utils/format";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useGateway } from "../utils/hooks";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import gql from "arweave-graphql";
 import { Link } from "wouter";
 import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, formatTimestamp } from "./process";
+import { MarkedContext } from "../components/MarkedProvider";
 
 interface MessageListItem {
   id: string;
@@ -84,8 +85,41 @@ export default function Home() {
     fetchMessages()
   }, []);
 
+  const [markedProcesses] = useContext(MarkedContext);
+
   return (
     <Wrapper>
+      {markedProcesses.length > 0 && (
+        <>
+          <p>Bookmarked processes</p>
+          <Table style={{ marginBottom: "2rem" }}>
+            <tr>
+              <th></th>
+              <th>Process ID</th>
+              <th>Name</th>
+              <th>Creator</th>
+              <th>Scheduler</th>
+            </tr>
+            {markedProcesses.map((id, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/process/${id}`}>
+                    {formatAddress(id, 11)}
+                  </Link>
+                </td>
+                <td>
+                  <Link to={`#/process/${id}`} style={{ textOverflow: "ellipsis", maxWidth: "7rem", overflow: "hidden", whiteSpace: "nowrap" }}>
+                    Process name
+                  </Link>
+                </td>
+                <td>{formatAddress(id, 7)}</td>
+                <td>{formatAddress(id, 7)}</td>
+              </tr>
+            ))}
+          </Table>
+        </>
+      )}
       <InteractionsMenu>
         <InteractionsWrapper>
           <InteractionsMenuItem
