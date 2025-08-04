@@ -2,7 +2,7 @@ import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab }
 import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Wrapper } from "../components/Page";
 import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import arGql, { GetTransactionsQuery, Tag } from "arweave-graphql";
-import { formatAddress, getTagValue } from "../utils/format";
+import { formatAddress, formatJSONOrString, getTagValue } from "../utils/format";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -98,7 +98,7 @@ export default function Interaction({ interaction }: Props) {
       const data = await (
         await fetch(`${gateway}/${message.node.id}`)
       ).text();
-console.log(data)
+
       setData(data || "");
     })();
   }, [gateway, message]);
@@ -358,7 +358,8 @@ console.log(data)
           theme="vs-dark"
           defaultLanguage="json"
           defaultValue={"{}\n"}
-          value={(data || "{}") + "\n"}
+          language={tags.Action === "Eval" ? "lua" : "json"}
+          value={formatJSONOrString(data) + "\n"}
           options={{ minimap: { enabled: false }, readOnly: true }}
         />
         <Editor
