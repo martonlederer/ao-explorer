@@ -1,10 +1,10 @@
 import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Title, Wrapper } from "../components/Page";
 import { DownloadIcon, ShareIcon } from "@iconicicons/react";
-import { createDataItemSigner, message, dryrun } from "@permaweb/aoconnect"
+import { createDataItemSigner, message, dryrun, result } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import arGql, { Tag, TransactionEdge } from "arweave-graphql";
 import { formatAddress, getTagValue } from "../utils/format";
-import { useConnection } from "@arweave-wallet-kit/react";
+import { useActiveAddress, useConnection } from "@arweave-wallet-kit/react";
 import advancedFormat from "dayjs/plugin/advancedFormat";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { useEffect, useMemo, useState } from "react";
@@ -20,6 +20,8 @@ import Table from "../components/Table";
 import dayjs from "dayjs";
 import { Message } from "./interaction";
 import { Quantity } from "ao-tokens-lite";
+import { Editor, OnMount } from "@monaco-editor/react";
+import Button from "../components/Btn";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -160,7 +162,7 @@ export default function Process({ id }: Props) {
     })();
   }, [tags, initTx, gateway]);
 
-  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals" | "transfers" | "balances" | "holders">("incoming");
+  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals" | "transfers" | "balances" | "holders" | "query">("incoming");
 
   const [hasMoreIncoming, setHasMoreIncoming] = useState(true);
   const [incoming, setIncoming] = useState<{ cursor: string; node: Record<string, any> }[]>([]);
@@ -407,10 +409,14 @@ export default function Process({ id }: Props) {
           const balanceMsg: Message = balRes.messages.find(
             (msg: Message) => !!getTagValue("Balance", msg.Tags)
           );
-          val.push({
-            token: balRes.token,
-            balance: BigInt(getTagValue("Balance", balanceMsg.Tags) || 0)
-          });
+          const balance = BigInt(getTagValue("Balance", balanceMsg.Tags) || 0);
+
+          if (balance > 0n) {
+            val.push({
+              token: balRes.token,
+              balance
+            });
+          }
         }
 
         return val;
@@ -420,7 +426,6 @@ export default function Process({ id }: Props) {
   }
 
   useEffect(() => {
-    console.log(tokenBalances)
     setTokenBalances([]);
     fetchTokenBalances();
   }, [id]);
@@ -460,48 +465,260 @@ export default function Process({ id }: Props) {
     })();
   }, [id]);
 
-  // @ts-expect-error
-  const [query, setQuery] = useState('{\n\t"tags": [\n\t\t{ "name": "Action", "value": "Balance" }\n\t],\n\t"data": ""\n}');
-  const { connect, connected } = useConnection();
-  const [, setLocation] = useLocation();
-  const [loadingQuery, setLoadingQuery] = useState(false);
+  const address = useActiveAddress();
+  const messageSchema = useMemo(
+    () => ({
+      $schema: "http://json-schema.org/draft-07/schema#",
+      type: "object",
+      properties: {
+        Owner: {
+          anyOf: [
+            { enum: [id, ...(address ? [address] : []), ...Object.keys(cachedTokens)] },
+            {
+              type: "string",
+              pattern: "^[a-zA-Z0-9_-]{43}$",
+              description: "Must be a valid Arweave address (43 characters: letters, digits, hyphen, underscore)."
+            }
+          ]
+        },
+        Id: {
+          type: "string",
+          pattern: "^[a-zA-Z0-9_-]{43}$",
+          description: "Must be a valid Arweave address (43 characters: letters, digits, hyphen, underscore)."
+        },
+        Target: {
+          anyOf: [
+            { enum: [id, ...Object.keys(cachedTokens)] },
+            {
+              type: "string",
+              pattern: "^[a-zA-Z0-9_-]{43}$",
+              description: "Must be a valid Arweave address (43 characters: letters, digits, hyphen, underscore)."
+            }
+          ]
+        },
+        Tags: {
+          anyOf: [
+            {
+              type: "object",
+              properties: {
+                Action: {
+                  anyOf: [
+                    { enum: ["Info", "Transfer", "Balance", "Balances", "Total-Supply", "Burn"] },
+                    { type: "string" }
+                  ]
+                },
+                Recipient: {
+                  anyOf: [
+                    { enum: [id, ...(address ? [address] : []), ...Object.keys(cachedTokens)] },
+                    { type: "string" }
+                  ]
+                },
+                Quantity: { type: "string" },
+                Sender: {
+                  anyOf: [
+                    { enum: [id, ...(address ? [address] : []), ...Object.keys(cachedTokens)] },
+                    { type: "string" }
+                  ]
+                },
+                Reference: { type: "string" }
+              },
+              additionalProperties: {
+                type: "string"
+              }
+            },
+            {
+              type: "array",
+              items: {
+                anyOf: [
+                  {
+                    type: "object",
+                    properties: {
+                      name: { const: "Action" },
+                      value: {
+                        anyOf: [
+                          { enum: ["Info", "Transfer", "Balance", "Balances", "Total-Supply", "Burn"] },
+                          { type: "string" }
+                        ]
+                      }
+                    },
+                    required: ["name", "value"],
+                    additionalProperties: false
+                  },
+                  {
+                    type: "object",
+                    properties: {
+                      name: { const: "Recipient" },
+                      value: {
+                        anyOf: [
+                          { enum: [id, ...(address ? [address] : []), ...Object.keys(cachedTokens)] },
+                          { type: "string" }
+                        ]
+                      }
+                    },
+                    required: ["name", "value"],
+                    additionalProperties: false
+                  },
+                  {
+                    type: "object",
+                    properties: {
+                      name: { const: "Sender" },
+                      value: {
+                        anyOf: [
+                          { enum: [id, ...(address ? [address] : []), ...Object.keys(cachedTokens)] },
+                          { type: "string" }
+                        ]
+                      }
+                    },
+                    required: ["name", "value"],
+                    additionalProperties: false
+                  },
+                  {
+                    type: "object",
+                    properties: {
+                      name: { const: "Quantity" },
+                      value: { type: "string" }
+                    },
+                    required: ["name", "value"],
+                    additionalProperties: false
+                  },
+                  {
+                    type: "object",
+                    properties: {
+                      name: { const: "Reference" },
+                      value: { type: "string" }
+                    },
+                    required: ["name", "value"],
+                    additionalProperties: false
+                  },
+                  {
+                    type: "object",
+                    properties: {
+                      name: { type: "string" },
+                      value: { type: "string" }
+                    },
+                    required: ["name", "value"],
+                    additionalProperties: false
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        Data: {}
+      },
+      required: ["Target", "Tags"]
+    }),
+    [id, address, cachedTokens]
+  );
 
-  // @ts-expect-error
-  async function queryProcess() {
-    if (loadingQuery) return;
-    setLoadingQuery(true);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => setQuery(JSON.stringify({
+    Target: id,
+    Tags: { Action: "Info" },
+    Data: ""
+  }, null, 2) + "\n"), [id]);
+
+  const { connect, connected } = useConnection();
+
+  function parseQuery(dryrun = false) {
+    const messageQuery = JSON.parse(query);
+    const dryRunObj: Record<string, string> = {};
+    let tags: { name: string, value: string }[] = [];
+    let messageData = messageQuery.Data;
+
+    if (messageData && typeof messageData !== "string") {
+      messageData = JSON.stringify(messageData);
+    }
+    if (dryrun) {
+      dryRunObj.Owner = messageQuery.Owner || address || "0".repeat(43);
+      dryRunObj.Id = messageQuery.Id || "0".repeat(43);
+    }
+    if (Array.isArray(messageData.Tags)) {
+      tags = messageData.Tags;
+    } else {
+      tags = Object.entries(messageQuery.Tags || {}).map(([name, value]) => ({ name, value: String(value) }));
+    }
+
+    return {
+      ...dryRunObj,
+      process: messageQuery.Target,
+      // TODO: use wallet kit
+      // @ts-expect-error
+      signer: createDataItemSigner(window.arweaveWallet),
+      tags,
+      data: messageData
+    };
+  }
+
+  const [loadingMessage, setLoadingMessage] = useState(false);
+  const [loadingDryRun, setLoadingDryRun] = useState(false);
+
+  async function messageProcess() {
+    if (loadingMessage || loadingDryRun) return;
+    setLoadingMessage(true);
     try {
       if (!connected) await connect();
-      const messageQuery = JSON.parse(query);
-      const messageID = await message({
-        process: id,
-        // TODO: use wallet kit
-        // @ts-expect-error
-        signer: createDataItemSigner(window.arweaveWallet),
-        tags: messageQuery.tags || [],
-        data: messageQuery.data
+      const query = parseQuery();
+      const messageID = await message(query);
+      const messageResult = await result({
+        process: query.process,
+        message: messageID
       });
-      setLocation(`#/message/${messageID}`);
+
+      console.log(messageResult);
     } catch (e) {
       console.log("Query error:", e);
     }
-    setLoadingQuery(false);
+    setLoadingMessage(false);
   }
 
-  function formatQuantity(qty: Quantity) {
+  async function dryRunProcess() {
+    if (loadingMessage || loadingDryRun) return;
+    setLoadingDryRun(true);
+    try {
+      const query = parseQuery(true);
+      const dryRunResult = await dryrun(query);
+
+      console.log(dryRunResult)
+    } catch (e) {
+      console.log("Query error:", e);
+    }
+    setLoadingDryRun(false);
+  }
+
+  const handleEditorMount: OnMount = (_, monacoInstance) => {
+    monacoInstance.languages.json.jsonDefaults.setDiagnosticsOptions({
+      validate: true,
+      schemas: [
+        {
+          uri: "https://liquidops.io/schema.json",
+          fileMatch: ["*"],
+          schema: messageSchema
+        }
+      ]
+    })
+  };
+
+  function formatQuantity(qty: Quantity, dir: "in" | "out" | "none" = "none") {
+    const dirs = {
+      in: "+",
+      out: "-",
+      none: ""
+    };
     if (Quantity.eq(qty, new Quantity(0, 0n))) {
-      return "0";
+      return dirs[dir] + "0";
     }
     let maximumFractionDigits = 2;
     if (Quantity.lt(qty, new Quantity(0, qty.denomination).fromString("0.01"))) {
       maximumFractionDigits = Number(qty.denomination)
     }
     if (qty.denomination > 8 && Quantity.lt(qty, new Quantity(0, qty.denomination).fromString("0." + "0".repeat(7) + "1"))) {
-      return ">0." + "0".repeat(7) + "1";
+      return "0." + "0".repeat(7) + "1 >";
     }
 
     // @ts-expect-error
-    return qty.toLocaleString(undefined, { maximumFractionDigits });
+    return dirs[dir] + qty.toLocaleString(undefined, { maximumFractionDigits });
   }
 
   if (!initTx || initTx == "loading") {
@@ -635,51 +852,83 @@ export default function Process({ id }: Props) {
         Messages
       </Title>
       <InteractionsMenu>
-        <InteractionsMenuItem
-          active={interactionsMode === "incoming"}
-          onClick={() => setInteractionsMode("incoming")}
-        >
-          Incoming
-        </InteractionsMenuItem>
-        <InteractionsMenuItem
-          active={interactionsMode === "outgoing"}
-          onClick={() => setInteractionsMode("outgoing")}
-        >
-          Outgoing
-        </InteractionsMenuItem>
-        <InteractionsMenuItem
-          active={interactionsMode === "spawns"}
-          onClick={() => setInteractionsMode("spawns")}
-        >
-          Spawns
-        </InteractionsMenuItem>
-        <InteractionsMenuItem
-          active={interactionsMode === "evals"}
-          onClick={() => setInteractionsMode("evals")}
-        >
-          Evals
-        </InteractionsMenuItem>
-        <InteractionsMenuItem
-          active={interactionsMode === "transfers"}
-          onClick={() => setInteractionsMode("transfers")}
-        >
-          Transfers
-        </InteractionsMenuItem>
-        <InteractionsMenuItem
-          active={interactionsMode === "balances"}
-          onClick={() => setInteractionsMode("balances")}
-        >
-          Balances
-        </InteractionsMenuItem>
-        {holders.length > 0 && (
+        <InteractionsWrapper>
           <InteractionsMenuItem
-            active={interactionsMode === "holders"}
-            onClick={() => setInteractionsMode("holders")}
+            active={interactionsMode === "incoming"}
+            onClick={() => setInteractionsMode("incoming")}
           >
-            Holders
+            Incoming
           </InteractionsMenuItem>
-        )}
+          <InteractionsMenuItem
+            active={interactionsMode === "outgoing"}
+            onClick={() => setInteractionsMode("outgoing")}
+          >
+            Outgoing
+          </InteractionsMenuItem>
+          <InteractionsMenuItem
+            active={interactionsMode === "spawns"}
+            onClick={() => setInteractionsMode("spawns")}
+          >
+            Spawns
+          </InteractionsMenuItem>
+          <InteractionsMenuItem
+            active={interactionsMode === "evals"}
+            onClick={() => setInteractionsMode("evals")}
+          >
+            Evals
+          </InteractionsMenuItem>
+          <InteractionsMenuItem
+            active={interactionsMode === "transfers"}
+            onClick={() => setInteractionsMode("transfers")}
+          >
+            Transfers
+          </InteractionsMenuItem>
+          <InteractionsMenuItem
+            active={interactionsMode === "balances"}
+            onClick={() => setInteractionsMode("balances")}
+          >
+            Balances
+          </InteractionsMenuItem>
+          {holders.length > 0 && (
+            <InteractionsMenuItem
+              active={interactionsMode === "holders"}
+              onClick={() => setInteractionsMode("holders")}
+            >
+              Holders
+            </InteractionsMenuItem>
+          )}
+        </InteractionsWrapper>
+        <InteractionsWrapper>
+          <InteractionsMenuItem
+            active={interactionsMode === "query"}
+            onClick={() => setInteractionsMode("query")}
+          >
+            Query
+          </InteractionsMenuItem>
+        </InteractionsWrapper>
       </InteractionsMenu>
+      {interactionsMode === "query" && (
+        <div>
+          <QueryTab>
+            <Editor
+              theme="vs-dark"
+              defaultLanguage="json"
+              defaultValue={query}
+              onChange={(v) => setQuery(v || "")}
+              onMount={handleEditorMount}
+              options={{ minimap: { enabled: false } }}
+            />
+          </QueryTab>
+          <QueryBtns>
+            <Button onClick={dryRunProcess}>
+              {!loadingDryRun ? "Dry run" : "Loading..."}
+            </Button>
+            <Button onClick={messageProcess}>
+              {!loadingMessage ? "Message" : "Loading..."}
+            </Button>
+          </QueryBtns>
+        </div>
+      )}
       {interactionsMode === "holders" && (
         <Table>
           <tr>
@@ -720,7 +969,7 @@ export default function Process({ id }: Props) {
               <th>Token name</th>
               <th>Balance</th>
             </tr>
-            {tokenBalances.map((balance, i) => balance.balance > 0n && (
+            {tokenBalances.map((balance, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
@@ -745,6 +994,11 @@ export default function Process({ id }: Props) {
             ))}
           </Table>
           {loadingTokenBalances && <LoadingStatus>Loading...</LoadingStatus>}
+          {!loadingTokenBalances && tokenBalances.length === 0 && !hasMoreTransfers && (
+            <LoadingStatus>
+              No balances
+            </LoadingStatus>
+          )}
         </>
       )}
       {interactionsMode === "transfers" && (
@@ -787,11 +1041,11 @@ export default function Process({ id }: Props) {
                   </Link>
                 </td>
                 <td>
-                  <Link to={`#/process/${transfer.to}`}>
+                  <Link to={`#/process/${transfer.token}`}>
                     <span style={{ color: transfer.dir === "out" ? "#ff0000" : "#00db5f" }}>
                       {transfer.dir === "out" ? "-" : "+"}
                       {//@ts-expect-error
-                        formatQuantity(new Quantity(transfer.quantity, cachedTokens[transfer.token] !== "pending" ? cachedTokens[transfer.token]?.denomination || 12 : 12))}
+                        formatQuantity(new Quantity(transfer.quantity, cachedTokens[transfer.token] !== "pending" ? cachedTokens[transfer.token]?.denomination || 12n : 12n))}
                     </span>
                     {typeof cachedTokens[transfer.token] !== "undefined" && cachedTokens[transfer.token] !== "pending" && (
                       <TokenTicker>
@@ -979,8 +1233,15 @@ export const InteractionsMenu = styled.div`
   display: flex;
   align-items: center;
   gap: 1rem;
+  justify-content: space-between;
   border-bottom: 1px solid rgba(255, 255, 255, .1);
   margin-bottom: 1rem;
+`;
+
+const InteractionsWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 `;
 
 export const InteractionsMenuItem = styled.p<{ active?: boolean; }>`
@@ -1061,4 +1322,19 @@ const TokenIcon = styled.img`
   border-radius: 100%;
   object-fit: cover;
   user-select: none;
+`;
+
+const QueryTab = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  height: 65vh;
+  margin-bottom: 1rem;
+`;
+
+const QueryBtns = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: flex-end;
 `;
