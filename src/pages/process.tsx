@@ -1,4 +1,4 @@
-import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper } from "../components/Page";
+import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper, Tables } from "../components/Page";
 import { DownloadIcon, ShareIcon } from "@iconicicons/react";
 import { createDataItemSigner, message, dryrun, result } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
@@ -1311,23 +1311,6 @@ interface OutgoingInteraction {
   cursor: string;
 }
 
-const Tables = styled.div`
-  width: 100%;
-
-  ${Table} {
-    width: 100%;
-  }
-
-  a {
-    display: inline-flex !important;
-    color: #04ff00 !important;
-  }
-
-  ${Table} tr td:first-child {
-    white-space: nowrap;
-  }
-`;
-
 const TokenTicker = styled.span`
   display: flex;
   align-items: center;
@@ -1343,7 +1326,7 @@ const TokenIcon = styled.img`
   user-select: none;
 `;
 
-const QueryTab = styled.div`
+export const QueryTab = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;

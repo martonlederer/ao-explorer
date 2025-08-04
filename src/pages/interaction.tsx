@@ -1,4 +1,5 @@
-import { Copy, NotFound, ProcessID, ProcessTitle, Tables, Wrapper } from "../components/Page";
+import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
+import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Wrapper } from "../components/Page";
 import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import arGql, { GetTransactionsQuery, Tag } from "arweave-graphql";
 import { formatAddress, getTagValue } from "../utils/format";
@@ -7,13 +8,13 @@ import TagEl, { TagsWrapper } from "../components/Tag";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { ShareIcon } from "@iconicicons/react";
+import { Editor } from "@monaco-editor/react";
 import { result } from "@permaweb/aoconnect";
 import { useGateway } from "../utils/hooks";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import { Link } from "wouter";
 import dayjs from "dayjs";
-import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper } from "./process";
 import { LoadingStatus } from ".";
 
 dayjs.extend(relativeTime);
@@ -93,10 +94,12 @@ export default function Interaction({ interaction }: Props) {
   useEffect(() => {
     (async () => {
       if (!message || message === "loading") return;
+      setData("");
+
       const data = await (
         await fetch(`${gateway}/${message.node.id}`)
       ).text();
-
+console.log(data)
       setData(data || "");
     })();
   }, [gateway, message]);
@@ -106,6 +109,8 @@ export default function Interaction({ interaction }: Props) {
   useEffect(() => {
     (async () => {
       if (!process || !message || message === "loading") return;
+      setRes(undefined);
+
       const resultData = await result({
         message: message.node.id,
         process
@@ -172,6 +177,12 @@ export default function Interaction({ interaction }: Props) {
     <Wrapper>
       <ProcessTitle>
         Message
+        {tags.Action && (
+          <ProcessName>
+            {tags.Action}
+            {tags["X-Action"] && ("/" + tags["X-Action"])}
+          </ProcessName>
+        )}
       </ProcessTitle>
       <ProcessID>
         {interaction}
@@ -271,12 +282,6 @@ export default function Interaction({ interaction }: Props) {
             </td>
           </tr>
         </Table>
-        <Data>
-          <DataTitle>
-            Data
-          </DataTitle>
-          <div dangerouslySetInnerHTML={{ __html: terminalCodesToHtml(data) }}></div>
-        </Data>
       </Tables>
       <Space />
       <InteractionsMenu>
@@ -338,6 +343,7 @@ export default function Interaction({ interaction }: Props) {
       {(messagesMode === "resulting" && resultingMessages.length === 0 || messagesMode === "linked" && linkedMessages.length === 0) && !loadingMessages && (
         <LoadingStatus>
           No messages
+          {!message.node.block && (res?.Messages?.length || 0) > 0 && " (Waiting for gateway to cache...)"}
         </LoadingStatus>
       )}
       {loadingMessages && (
@@ -346,12 +352,24 @@ export default function Interaction({ interaction }: Props) {
         </LoadingStatus>
       )}
       <Space />
-      <Data>
-        <DataTitle>
-          Result
-        </DataTitle>
-        {(res && JSON.stringify(res || {}, null, 2) )|| ""}
-      </Data>
+      <QueryTab style={{ gap: "1rem 2rem" }}>
+        <DataTitle>Data</DataTitle>
+        <DataTitle>Result</DataTitle>
+        <Editor
+          theme="vs-dark"
+          defaultLanguage="json"
+          defaultValue={"{}\n"}
+          value={(data || "{}") + "\n"}
+          options={{ minimap: { enabled: false }, readOnly: true }}
+        />
+        <Editor
+          theme="vs-dark"
+          defaultLanguage="json"
+          defaultValue={"{}\n"}
+          value={JSON.stringify(res || {}, null, 2) + "\n"}
+          options={{ minimap: { enabled: false }, readOnly: true }}
+        />
+      </QueryTab>
       <Space />
     </Wrapper>
   );
@@ -370,13 +388,9 @@ const Data = styled.div`
 `;
 
 const DataTitle = styled.p`
-  position: absolute;
-  top: .7rem;
-  left: .7rem;
   color: #fff;
   font-family: "Inter", sans-serif;
   margin: 0;
-  z-index: 10;
 `;
 
 const Space = styled.div`

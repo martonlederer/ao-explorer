@@ -72,9 +72,11 @@ export const Copy = styled(ClipboardIcon)`
 `;
 
 export const Tables = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
+  width: 100%;
+
+  ${Table} {
+    width: 100%;
+  }
 
   a {
     display: inline-flex !important;
