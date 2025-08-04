@@ -13,6 +13,7 @@ import Process from "./pages/process";
 import { css } from "@linaria/core";
 import Nav from "./components/Nav";
 import Home from "./pages";
+import { MarkedProvider } from "./components/MarkedProvider";
 
 const convertPathToRegexp = (path: string) => {
   let keys: Key[] = [];
@@ -55,24 +56,28 @@ function App() {
         }
       }}
     >
-      <BgBlur />
-      <Router hook={useHashLocation} matcher={customMatcher}>
-        <Nav />
-        <Main>
-          <Switch>
-            <Route path="/" component={Home} />
-            <Route path="/message/:message">
-              {(props) => <Interaction interaction={props.message} />}
-            </Route>
-            <Route path="/process/:id">
-              {(props) => <Process id={props.id} />}
-            </Route>
-            <Route path="/process/:id/:message">
-              {(props) => <Redirect to={`/message/${props.message}`} />}
-            </Route>
-          </Switch>
-        </Main>
-      </Router>
+      <MarkedProvider>
+        <>
+          <BgBlur />
+          <Router hook={useHashLocation} matcher={customMatcher}>
+            <Nav />
+            <Main>
+              <Switch>
+                <Route path="/" component={Home} />
+                <Route path="/message/:message">
+                  {(props) => <Interaction interaction={props.message} />}
+                </Route>
+                <Route path="/process/:id">
+                  {(props) => <Process id={props.id} />}
+                </Route>
+                <Route path="/process/:id/:message">
+                  {(props) => <Redirect to={`/message/${props.message}`} />}
+                </Route>
+              </Switch>
+            </Main>
+          </Router>
+        </>
+      </MarkedProvider>
     </ArweaveWalletKit>
   );
 }

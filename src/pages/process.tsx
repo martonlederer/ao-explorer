@@ -7,10 +7,11 @@ import { formatAddress, getTagValue } from "../utils/format";
 import { useActiveAddress, useConnection } from "@arweave-wallet-kit/react";
 import advancedFormat from "dayjs/plugin/advancedFormat";
 import TagEl, { TagsWrapper } from "../components/Tag";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import isYesterday from "dayjs/plugin/isYesterday";
 import weekOfYear from "dayjs/plugin/weekOfYear";
+import { BookmarkIcon } from "@iconicicons/react";
 import { useGateway } from "../utils/hooks";
 import isToday from "dayjs/plugin/isToday";
 import { Link } from "wouter";
@@ -22,6 +23,7 @@ import { Message } from "./interaction";
 import { Quantity } from "ao-tokens-lite";
 import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
+import { MarkedContext } from "../components/MarkedProvider";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -726,6 +728,22 @@ export default function Process({ id }: Props) {
     return dirs[dir] + qty.toLocaleString(undefined, { maximumFractionDigits });
   }
 
+  const [markedProcesses, setMarkedProcesses] = useContext(MarkedContext);
+  const isMarked = useMemo(
+    () => markedProcesses.includes(id),
+    [id, markedProcesses]
+  );
+
+  function toggleBookmark() {
+    setMarkedProcesses((val) => {
+      if (val.includes(id)) {
+        return val.filter(p => p !== id);
+      }
+
+      return [...val, id];
+    });
+  }
+
   if (!initTx || initTx == "loading") {
     return (
       <Wrapper>
@@ -745,6 +763,7 @@ export default function Process({ id }: Props) {
           <ProcessName>
             {info?.Name || tags.Name || (cachedTokens[id] as any)?.name}
             {(info?.Logo || (cachedTokens[id] as any)?.logo) && <TokenLogo src={`${gateway}/${info?.Logo || (cachedTokens[id] as any)?.logo}`} draggable={false} />}
+            <BookmarkProcess filled={isMarked} onClick={toggleBookmark} />
           </ProcessName>
         )}
       </ProcessTitle>
@@ -1339,4 +1358,24 @@ const QueryBtns = styled.div`
   align-items: center;
   gap: 1rem;
   justify-content: flex-end;
+`;
+
+const BookmarkProcess = styled(BookmarkIcon)<{ filled: boolean }>`
+  width: 1em;
+  height: 1em;
+  color: #fff;
+  cursor: pointer;
+  transition: all .17s ease;
+
+  &:hover {
+    opacity: .85;
+  }
+
+  &:active {
+    transform: scale(.9);
+  }
+
+  path {
+    fill: ${(props) => props.filled ? "currentColor" : "none"};
+  }
 `;
