@@ -1,4 +1,4 @@
-import { Tag } from "arweave-graphql"
+import { Tag } from "../queries/processes";
 
 export function formatAddress(address: string, count = 11) {
   return (

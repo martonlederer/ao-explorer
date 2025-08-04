@@ -14,6 +14,8 @@ import { css } from "@linaria/core";
 import Nav from "./components/Nav";
 import Home from "./pages";
 import { MarkedProvider } from "./components/MarkedProvider";
+import { ApolloProvider } from "@apollo/client";
+import { client } from "./utils/gql_client";
 
 const convertPathToRegexp = (path: string) => {
   let keys: Key[] = [];
@@ -56,28 +58,30 @@ function App() {
         }
       }}
     >
-      <MarkedProvider>
-        <>
-          <BgBlur />
-          <Router hook={useHashLocation} matcher={customMatcher}>
-            <Nav />
-            <Main>
-              <Switch>
-                <Route path="/" component={Home} />
-                <Route path="/message/:message">
-                  {(props) => <Interaction interaction={props.message} />}
-                </Route>
-                <Route path="/process/:id">
-                  {(props) => <Process id={props.id} />}
-                </Route>
-                <Route path="/process/:id/:message">
-                  {(props) => <Redirect to={`/message/${props.message}`} />}
-                </Route>
-              </Switch>
-            </Main>
-          </Router>
-        </>
-      </MarkedProvider>
+      <ApolloProvider client={client}>
+        <MarkedProvider>
+          <>
+            <BgBlur />
+            <Router hook={useHashLocation} matcher={customMatcher}>
+              <Nav />
+              <Main>
+                <Switch>
+                  <Route path="/" component={Home} />
+                  <Route path="/message/:message">
+                    {(props) => <Interaction interaction={props.message} />}
+                  </Route>
+                  <Route path="/process/:id">
+                    {(props) => <Process id={props.id} />}
+                  </Route>
+                  <Route path="/process/:id/:message">
+                    {(props) => <Redirect to={`/message/${props.message}`} />}
+                  </Route>
+                </Switch>
+              </Main>
+            </Router>
+          </>
+        </MarkedProvider>
+      </ApolloProvider>
     </ArweaveWalletKit>
   );
 }
