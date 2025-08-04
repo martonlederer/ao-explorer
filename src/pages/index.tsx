@@ -186,10 +186,10 @@ export default function Home() {
           {loadingMarkedProcessDatas && <LoadingStatus>Loading...</LoadingStatus>}
         </>
       )}
-      <SmallTitle>
+      {/*<SmallTitle>
         <RewindIcon />
         Recently interacted with
-      </SmallTitle>
+        </SmallTitle>*/}
       <InteractionsMenu>
         <InteractionsWrapper>
           <InteractionsMenuItem
