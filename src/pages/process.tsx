@@ -1250,7 +1250,7 @@ export const InteractionsMenu = styled.div`
   margin-bottom: 1rem;
 `;
 
-const InteractionsWrapper = styled.div`
+export const InteractionsWrapper = styled.div`
   display: flex;
   align-items: center;
   gap: 1rem;

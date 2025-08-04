@@ -6,7 +6,7 @@ import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import gql from "arweave-graphql";
 import { Link } from "wouter";
-import { InteractionsMenu, InteractionsMenuItem, formatTimestamp } from "./process";
+import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, formatTimestamp } from "./process";
 
 interface MessageListItem {
   id: string;
@@ -87,18 +87,20 @@ export default function Home() {
   return (
     <Wrapper>
       <InteractionsMenu>
-        <InteractionsMenuItem
-          active={mode === "processes"}
-          onClick={() => setMode("processes")}
-        >
-          Processes
-        </InteractionsMenuItem>
-        <InteractionsMenuItem
-          active={mode === "messages"}
-          onClick={() => setMode("messages")}
-        >
-          Messages
-        </InteractionsMenuItem>
+        <InteractionsWrapper>
+          <InteractionsMenuItem
+            active={mode === "processes"}
+            onClick={() => setMode("processes")}
+          >
+            Processes
+          </InteractionsMenuItem>
+          <InteractionsMenuItem
+            active={mode === "messages"}
+            onClick={() => setMode("messages")}
+          >
+            Messages
+          </InteractionsMenuItem>
+        </InteractionsWrapper>
       </InteractionsMenu>
       {mode === "processes" && (
         <InfiniteScroll

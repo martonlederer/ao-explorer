@@ -13,7 +13,7 @@ import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import { Link } from "wouter";
 import dayjs from "dayjs";
-import { InteractionsMenu, InteractionsMenuItem } from "./process";
+import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper } from "./process";
 import { LoadingStatus } from ".";
 
 dayjs.extend(relativeTime);
@@ -280,18 +280,20 @@ export default function Interaction({ interaction }: Props) {
       </Tables>
       <Space />
       <InteractionsMenu>
-        <InteractionsMenuItem
-          active={messagesMode === "resulting"}
-          onClick={() => setMessagesMode("resulting")}
-        >
-          Resulting messages
-        </InteractionsMenuItem>
-        <InteractionsMenuItem
-          active={messagesMode === "linked"}
-          onClick={() => setMessagesMode("linked")}
-        >
-          Linked messages
-        </InteractionsMenuItem>
+        <InteractionsWrapper>
+          <InteractionsMenuItem
+            active={messagesMode === "resulting"}
+            onClick={() => setMessagesMode("resulting")}
+          >
+            Resulting messages
+          </InteractionsMenuItem>
+          <InteractionsMenuItem
+            active={messagesMode === "linked"}
+            onClick={() => setMessagesMode("linked")}
+          >
+            Linked messages
+          </InteractionsMenuItem>
+        </InteractionsWrapper>
       </InteractionsMenu>
       <Table>
         <tr>
