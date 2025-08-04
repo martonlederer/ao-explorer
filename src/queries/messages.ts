@@ -12,16 +12,26 @@ interface GetAllMessagesType {
       hasNextPage: boolean;
     };
     edges: {
-      node: {
-        id: string;
-        tags: Tag[];
-        owner: {
-          address: string;
-        };
-        recipient: string;
-        block?: Block;
-      };
+      node: TransactionNode;
       cursor: string;
+    }[];
+  };
+}
+
+export interface TransactionNode {
+  id: string;
+  tags: Tag[];
+  owner: {
+    address: string;
+  };
+  recipient: string;
+  block?: Block;
+}
+
+interface GetMessageType {
+  transactions: {
+    edges: {
+      node: TransactionNode;
     }[];
   };
 }
@@ -30,7 +40,7 @@ export const GetAllMessages: TypedDocumentNode<GetAllMessagesType, { cursor?: st
   query GetAllMessages ($cursor: String) {
     transactions(
       tags: [
-        { name: "Data-Protocol", values: ["ao"]}
+        { name: "Data-Protocol", values: ["ao"] }
         { name: "Type", values: ["Message"] }
       ],
       first: 100
@@ -56,6 +66,68 @@ export const GetAllMessages: TypedDocumentNode<GetAllMessagesType, { cursor?: st
           }
         }
         cursor
+      }
+    }
+  }
+`;
+
+export const GetMessage: TypedDocumentNode<GetMessageType, { id: string }> = gql`
+  query GetMessage ($id: ID!) {
+    transactions(
+      ids: [$id]
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+        { name: "Type", values: ["Message"] }
+      ],
+      first: 1
+    ) {
+      edges {
+        node {
+          id
+          tags {
+            name
+            value
+          }
+          owner {
+            address
+          }
+          recipient
+          block {
+            height
+            timestamp
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const GetLinkedMessages: TypedDocumentNode<GetMessageType, { pushedFor: string }> = gql`
+  query GetLinkedMessages ($pushedFor: ID!) {
+    transactions(
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+        { name: "Type", values: ["Message"] }
+        { name: "Pushed-For", values: [$pushedFor] }
+      ],
+      first: 100
+    ) {
+      edges {
+        node {
+          id
+          tags {
+            name
+            value
+          }
+          owner {
+            address
+          }
+          recipient
+          block {
+            height
+            timestamp
+          }
+        }
       }
     }
   }

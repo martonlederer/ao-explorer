@@ -1,24 +1,25 @@
 import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
 import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Wrapper } from "../components/Page";
-import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
-import arGql, { GetTransactionsQuery, Tag } from "arweave-graphql";
+import { GetLinkedMessages, GetMessage, TransactionNode } from "../queries/messages";
 import { formatAddress, formatJSONOrString, getTagValue } from "../utils/format";
+import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { ShareIcon } from "@iconicicons/react";
 import { Editor } from "@monaco-editor/react";
 import { result } from "@permaweb/aoconnect";
+import { client } from "../utils/gql_client";
 import { useGateway } from "../utils/hooks";
+import { Tag } from "../queries/processes";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
+import { LoadingStatus } from "./index";
 import { Link } from "wouter";
 import dayjs from "dayjs";
-import { LoadingStatus } from ".";
 
 dayjs.extend(relativeTime);
 
-type Transaction = GetTransactionsQuery["transactions"]["edges"][0]
 export interface Message {
   Anchor: string;
   Tags: Tag[];
@@ -27,12 +28,12 @@ export interface Message {
 }
 
 export default function Interaction({ interaction }: Props) {
-  const [message, setMessage] = useState<Transaction | "loading" | undefined>("loading");
+  const [message, setMessage] = useState<TransactionNode | "loading" | undefined>("loading");
   const gateway = useGateway();
 
   const process = useMemo<string | undefined>(() => {
     if (message === "loading" || !message) return undefined;
-    return message.node.recipient;
+    return message.recipient;
   }, [message]);
 
   const wait = (time: number) => new Promise((resolve) => setTimeout(resolve, time));
@@ -46,19 +47,16 @@ export default function Interaction({ interaction }: Props) {
       while (tries < 5) {
         try {
           // get output for token qty
-          const res = await arGql(`${gateway}/graphql`).getTransactions({
-            ids: [interaction],
-            tags: [
-              { name: "Data-Protocol", values: ["ao"] },
-              { name: "Type", values: ["Message"] },
-            ]
+          const res = await client.query({
+            query: GetMessage,
+            variables: { id: interaction }
           });
 
           if (cancel) return;
 
           // breaks
-          if (res.transactions.edges[0]) {
-            return setMessage(res.transactions.edges[0]);
+          if (res.data.transactions.edges[0]) {
+            return setMessage(res.data.transactions.edges[0].node);
           }
 
           // wait a bit to see if the interaction loads
@@ -81,7 +79,7 @@ export default function Interaction({ interaction }: Props) {
     if (!message || message == "loading")
       return tagRecord;
 
-    for (const tag of message.node.tags) {
+    for (const tag of message.tags) {
       tagRecord[tag.name] = tag.value
     }
 
@@ -96,7 +94,7 @@ export default function Interaction({ interaction }: Props) {
       setData("");
 
       const data = await (
-        await fetch(`${gateway}/${message.node.id}`)
+        await fetch(`${gateway}/${message.id}`)
       ).text();
 
       setData(data || "");
@@ -111,7 +109,7 @@ export default function Interaction({ interaction }: Props) {
       setRes(undefined);
 
       const resultData = await result({
-        message: message.node.id,
+        message: message.id,
         process
       });
 
@@ -119,8 +117,8 @@ export default function Interaction({ interaction }: Props) {
     })();
   }, [process, message]);
 
-  const [resultingMessages, setResultingMessages] = useState<GetTransactionsQuery["transactions"]["edges"]>([]);
-  const [linkedMessages, setLinkedMessages] = useState<GetTransactionsQuery["transactions"]["edges"]>([]);
+  const [resultingMessages, setResultingMessages] = useState<{ node: TransactionNode }[]>([]);
+  const [linkedMessages, setLinkedMessages] = useState<{ node: TransactionNode }[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
 
   useEffect(() => {
@@ -128,18 +126,14 @@ export default function Interaction({ interaction }: Props) {
       if (!message || message === "loading" || !res) return;
       setLoadingMessages(true);
       try {
-        const pushedMessages = await arGql(`${gateway}/graphql`).getTransactions({
-          tags: [
-            { name: "Data-Protocol", values: ["ao"] },
-            { name: "Type", values: ["Message"] },
-            { name: "Pushed-For", values: [tags["Pushed-For"] || message.node.id] }
-          ],
-          first: 100000
+        const pushedMessages = await client.query({
+          query: GetLinkedMessages,
+          variables: { pushedFor: tags["Pushed-For"] || message.id }
         });
 
-        setLinkedMessages(pushedMessages.transactions.edges.filter(
-          (edge) => edge.node.id !== message.node.id)
-        );
+        setLinkedMessages(pushedMessages.data.transactions.edges.filter(
+          (edge) => edge.node.id !== message.id
+        ));
 
         // array of references from the messages produced by this interaction
         // this is required to filter out messages pushed for this interaction,
@@ -148,11 +142,11 @@ export default function Interaction({ interaction }: Props) {
           .map((msg: Message) => getTagValue("Ref_", msg.Tags) || getTagValue("Reference", msg.Tags))
           .filter((ref: string | undefined) => typeof ref === "string");
 
-        setResultingMessages(pushedMessages.transactions.edges.filter(
+        setResultingMessages(pushedMessages.data.transactions.edges.filter(
           (edge) => {
             const ref = getTagValue("Ref_", edge.node.tags) || getTagValue("Reference", edge.node.tags);
 
-            return ref && resultingRefs.includes(ref) && edge.node.id !== message.node.id;
+            return ref && resultingRefs.includes(ref) && edge.node.id !== message.id;
           }
         ));
       } catch {}
@@ -195,8 +189,8 @@ export default function Interaction({ interaction }: Props) {
           <tr>
             <td>Owner</td>
             <td>
-              <a href={`https://viewblock.io/arweave/address/${message.node.owner.address}`} target="_blank" rel="noopener noreferer">
-                {formatAddress(message.node.owner.address)}
+              <a href={`https://viewblock.io/arweave/address/${message.owner.address}`} target="_blank" rel="noopener noreferer">
+                {formatAddress(message.owner.address)}
                 <ShareIcon />
               </a>
             </td>
@@ -263,7 +257,7 @@ export default function Interaction({ interaction }: Props) {
           <tr>
             <td>Timestamp</td>
             <td>
-              {(message.node.block?.timestamp && dayjs((message.node.block?.timestamp) * 1000).fromNow()) || "Pending..."}
+              {(message.block?.timestamp && dayjs((message.block?.timestamp) * 1000).fromNow()) || "Pending..."}
             </td>
           </tr>
           <tr>
@@ -342,7 +336,7 @@ export default function Interaction({ interaction }: Props) {
       {(messagesMode === "resulting" && resultingMessages.length === 0 || messagesMode === "linked" && linkedMessages.length === 0) && !loadingMessages && (
         <LoadingStatus>
           No messages
-          {!message.node.block && (res?.Messages?.length || 0) > 0 && " (Waiting for gateway to cache...)"}
+          {!message.block && (res?.Messages?.length || 0) > 0 && " (Waiting for gateway to cache...)"}
         </LoadingStatus>
       )}
       {loadingMessages && (

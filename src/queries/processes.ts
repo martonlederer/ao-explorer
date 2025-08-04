@@ -27,7 +27,7 @@ export const GetAllProcesses: TypedDocumentNode<GetAllProcessesType, { cursor?: 
   query GetAllProcesses ($cursor: String) {
     transactions(
       tags: [
-        { name: "Data-Protocol", values: ["ao"]}
+        { name: "Data-Protocol", values: ["ao"] }
         { name: "Type", values: ["Process"] }
       ],
       first: 100
@@ -58,7 +58,7 @@ export const GetOwnedProcesses: TypedDocumentNode<GetAllProcessesType, { owner: 
     transactions(
       owners: [$owner]
       tags: [
-        { name: "Data-Protocol", values: ["ao"]}
+        { name: "Data-Protocol", values: ["ao"] }
         { name: "Type", values: ["Process"] }
       ],
       first: 100
@@ -89,7 +89,7 @@ export const GetBookmarkedProcesses: TypedDocumentNode<GetAllProcessesType, { ma
     transactions(
       ids: $marked
       tags: [
-        { name: "Data-Protocol", values: ["ao"]}
+        { name: "Data-Protocol", values: ["ao"] }
         { name: "Type", values: ["Process"] }
       ],
       first: 100
