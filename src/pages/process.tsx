@@ -347,6 +347,8 @@ export default function Process({ id }: Props) {
 
   useEffect(() => {
     (async () => {
+      setInfo(undefined);
+
       const res = await dryrun({
         process: id,
         tags: [{ name: "Action", value: "Info" }]
@@ -910,8 +912,8 @@ export default function Process({ id }: Props) {
           <Editor
             theme="vs-dark"
             defaultLanguage="json"
-            defaultValue={"{}"}
-            value={info?.Data || "{}"}
+            defaultValue={"{}\n"}
+            value={(info?.Data || "{}") + "\n"}
             options={{ minimap: { enabled: false }, readOnly: true }}
           />
         </QueryTab>
