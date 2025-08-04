@@ -103,7 +103,7 @@ export const GetMessage: TypedDocumentNode<GetMessageType, { id: string }> = gql
 `;
 
 export const GetLinkedMessages: TypedDocumentNode<GetMessageType, { pushedFor: string }> = gql`
-  query GetLinkedMessages ($pushedFor: ID!) {
+  query GetLinkedMessages ($pushedFor: String!) {
     transactions(
       tags: [
         { name: "Data-Protocol", values: ["ao"] }
