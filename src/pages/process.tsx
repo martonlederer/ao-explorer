@@ -612,6 +612,7 @@ export default function Process({ id }: Props) {
   );
 
   const [query, setQuery] = useState("");
+  const [queryResult, setQueryResult] = useState<string | undefined>();
 
   useEffect(() => setQuery(JSON.stringify({
     Target: id,
@@ -666,7 +667,7 @@ export default function Process({ id }: Props) {
         message: messageID
       });
 
-      console.log(messageResult);
+      setQueryResult(JSON.stringify(messageResult, null, 2));
     } catch (e) {
       console.log("Query error:", e);
     }
@@ -680,7 +681,7 @@ export default function Process({ id }: Props) {
       const query = parseQuery(true);
       const dryRunResult = await dryrun(query);
 
-      console.log(dryRunResult)
+      setQueryResult(JSON.stringify(dryRunResult, null, 2));
     } catch (e) {
       console.log("Query error:", e);
     }
@@ -917,6 +918,14 @@ export default function Process({ id }: Props) {
               onChange={(v) => setQuery(v || "")}
               onMount={handleEditorMount}
               options={{ minimap: { enabled: false } }}
+            />
+            <Editor
+              theme="vs-dark"
+              defaultLanguage="json"
+              defaultValue={query}
+              language={(typeof queryResult === "undefined" || loadingDryRun || loadingMessage) ? "txt" : "json"}
+              value={(((loadingDryRun || loadingMessage) && "Loading...") || (queryResult || "Execute the message to see the result...")) + "\n"}
+              options={{ minimap: { enabled: false }, readOnly: true }}
             />
           </QueryTab>
           <QueryBtns>
