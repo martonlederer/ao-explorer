@@ -614,11 +614,14 @@ export default function Process({ id }: Props) {
   const [query, setQuery] = useState("");
   const [queryResult, setQueryResult] = useState<string | undefined>();
 
-  useEffect(() => setQuery(JSON.stringify({
-    Target: id,
-    Tags: { Action: "Info" },
-    Data: ""
-  }, null, 2) + "\n"), [id]);
+  useEffect(() => {
+    setQuery(JSON.stringify({
+      Target: id,
+      Tags: { Action: "Info" },
+      Data: ""
+    }, null, 2) + "\n");
+    setQueryResult(undefined);
+  }, [id]);
 
   const { connect, connected } = useConnection();
 
