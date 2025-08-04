@@ -13,7 +13,7 @@ import isYesterday from "dayjs/plugin/isYesterday";
 import weekOfYear from "dayjs/plugin/weekOfYear";
 import { useGateway } from "../utils/hooks";
 import isToday from "dayjs/plugin/isToday";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { styled } from "@linaria/react";
 import { LoadingStatus } from "./index";
 import Table from "../components/Table";
@@ -503,7 +503,7 @@ export default function Process({ id }: Props) {
               properties: {
                 Action: {
                   anyOf: [
-                    { enum: ["Info", "Transfer", "Balance", "Balances", "Total-Supply", "Burn"] },
+                    { enum: ["Info", "Transfer", "Balance", "Balances", "Total-Supply", "Burn", "Eval"] },
                     { type: "string" }
                   ]
                 },
@@ -536,7 +536,7 @@ export default function Process({ id }: Props) {
                       name: { const: "Action" },
                       value: {
                         anyOf: [
-                          { enum: ["Info", "Transfer", "Balance", "Balances", "Total-Supply", "Burn"] },
+                          { enum: ["Info", "Transfer", "Balance", "Balances", "Total-Supply", "Burn", "Eval"] },
                           { type: "string" }
                         ]
                       }
