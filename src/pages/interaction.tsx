@@ -3,7 +3,6 @@ import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Wrapper }
 import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import arGql, { GetTransactionsQuery, Tag } from "arweave-graphql";
 import { formatAddress, getTagValue } from "../utils/format";
-import { terminalCodesToHtml } from "terminal-codes-to-html";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -374,18 +373,6 @@ console.log(data)
     </Wrapper>
   );
 }
-
-const Data = styled.div`
-  position: relative;
-  background-color: rgba(255, 255, 255, .05);
-  padding: .7rem;
-  padding-top: 2rem;
-  font-family: "Space Mono", monospace;
-  font-size: 1rem;
-  color: #cbcbcb;
-  overflow: auto;
-  white-space: break-spaces;
-`;
 
 const DataTitle = styled.p`
   color: #fff;
