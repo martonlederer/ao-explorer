@@ -16,6 +16,14 @@ export const ProcessTitle = styled.h1`
   color: #fff;
 `;
 
+export const TokenLogo = styled.img`
+  width: 1em;
+  height: 1em;
+  border-radius: 100%;
+  user-select: none;
+  object-fit: cover;
+`;
+
 export const Title = styled.h2`
   font-size: 1.35rem;
   font-weight: 600;
@@ -30,6 +38,9 @@ export const NotFound = styled.p`
 `;
 
 export const ProcessName = styled.span`
+  display: flex;
+  align-items: center;
+  gap: .35rem;
   font-size: 1em;
   color: rgba(255, 255, 255, .7);
 `;

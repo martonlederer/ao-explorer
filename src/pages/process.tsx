@@ -1,4 +1,4 @@
-import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Title, Wrapper } from "../components/Page";
+import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper } from "../components/Page";
 import { DownloadIcon, ShareIcon } from "@iconicicons/react";
 import { createDataItemSigner, message, dryrun, result } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
@@ -162,7 +162,7 @@ export default function Process({ id }: Props) {
     })();
   }, [tags, initTx, gateway]);
 
-  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals" | "transfers" | "balances" | "holders" | "query">("incoming");
+  const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals" | "transfers" | "balances" | "holders" | "query" | "info">("incoming");
 
   const [hasMoreIncoming, setHasMoreIncoming] = useState(true);
   const [incoming, setIncoming] = useState<{ cursor: string; node: Record<string, any> }[]>([]);
@@ -344,7 +344,6 @@ export default function Process({ id }: Props) {
   }, [id, gateway]);
 
   const [info, setInfo] = useState<Record<string, string> | undefined>();
-  const [viewMoreInfo, setViewMoreInfo] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -739,9 +738,11 @@ export default function Process({ id }: Props) {
     <Wrapper>
       <ProcessTitle>
         Process
-        {!!(info?.Name || tags.Name) && (
+        {// @ts-expect-error
+          !!(info?.Name || tags.Name || (cachedTokens[id] !== "pending" && cachedTokens[id]?.name )) && (
           <ProcessName>
-            {info?.Name || tags.Name}
+            {info?.Name || tags.Name || (cachedTokens[id] as any)?.name}
+            {(info?.Logo || (cachedTokens[id] as any)?.logo) && <TokenLogo src={`${gateway}/${info?.Logo || (cachedTokens[id] as any)?.logo}`} draggable={false} />}
           </ProcessName>
         )}
       </ProcessTitle>
@@ -815,32 +816,6 @@ export default function Process({ id }: Props) {
               </TagsWrapper>
             </td>
           </tr>
-          {info && (
-            <tr>
-              <td>Info</td>
-              <td>
-                <Table>
-                  {Object.keys(info).slice(0, viewMoreInfo ? Object.keys(info).length : 4).map((name, i) => (
-                    <tr key={i}>
-                      <td>{name}</td>
-                      <td style={name === "Data" ? { whiteSpace: "pre-wrap" } : {}}>{info[name]}</td>
-                    </tr>
-                  ))}
-                  {Object.keys(info).length > 4 && (
-                    <tr>
-                      <td></td>
-                      <td>
-                        <a onClick={() => setViewMoreInfo(v => !v)}>
-                          View{" "}
-                          {viewMoreInfo ? "less" : "more"}
-                        </a>
-                      </td>
-                    </tr>
-                  )}
-                </Table>
-              </td>
-            </tr>
-          )}
           <tr>
             <td>Memory</td>
             <td>
@@ -903,6 +878,14 @@ export default function Process({ id }: Props) {
           )}
         </InteractionsWrapper>
         <InteractionsWrapper>
+          {info && (
+            <InteractionsMenuItem
+              active={interactionsMode === "info"}
+              onClick={() => setInteractionsMode("info")}
+            >
+              Info
+            </InteractionsMenuItem>
+          )}
           <InteractionsMenuItem
             active={interactionsMode === "query"}
             onClick={() => setInteractionsMode("query")}
@@ -911,6 +894,28 @@ export default function Process({ id }: Props) {
           </InteractionsMenuItem>
         </InteractionsWrapper>
       </InteractionsMenu>
+      {interactionsMode === "info" && info && (
+        <QueryTab>
+          <div>
+            <TagsWrapper>
+              {Object.keys(info).map((name, i) => name !== "Data" && info[name] !== "" && (
+                <TagEl
+                  name={name}
+                  value={info[name]}
+                  key={i}
+                />
+              ))}
+            </TagsWrapper>
+          </div>
+          <Editor
+            theme="vs-dark"
+            defaultLanguage="json"
+            defaultValue={"{}"}
+            value={info?.Data || "{}"}
+            options={{ minimap: { enabled: false }, readOnly: true }}
+          />
+        </QueryTab>
+      )}
       {interactionsMode === "query" && (
         <div>
           <QueryTab>
