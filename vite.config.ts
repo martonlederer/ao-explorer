@@ -2,7 +2,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import linaria from "@linaria/vite";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     linaria({
       include: ["**/*.{ts,tsx}"],
@@ -11,5 +11,8 @@ export default defineConfig({
       }
     }),
     react()
-  ]
-});
+  ],
+  define: {
+    "globalThis.__DEV__": JSON.stringify(mode === "development"),
+  }
+}));

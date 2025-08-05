@@ -118,7 +118,7 @@ export default function Process({ id }: Props) {
         query: GetSpawnMessage,
         variables: { id }
       });
-console.log(res)
+
       setInitTx(res.data.transactions.edges[0]?.node as TransactionNode);
     })();
   }, [id, gateway]);
