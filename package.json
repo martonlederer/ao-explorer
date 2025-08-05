@@ -10,6 +10,7 @@
     "deploy": "npx arkb deploy ./dist -w ./wallet.json --bundle"
   },
   "dependencies": {
+    "@apollo/client": "^3.13.9",
     "@arweave-wallet-kit/arconnect-strategy": "^0.0.1-beta.4",
     "@arweave-wallet-kit/browser-wallet-strategy": "^0.0.1-beta.4",
     "@arweave-wallet-kit/core": "^0.0.1-beta.4",
@@ -22,9 +23,9 @@
     "@monaco-editor/react": "^4.7.0",
     "@permaweb/aoconnect": "^0.0.43",
     "ao-tokens-lite": "^0.0.9",
-    "arweave-graphql": "^0.0.5",
     "arweave-wallet-connector": "^1.0.2",
     "dayjs": "^1.11.10",
+    "graphql": "^16.11.0",
     "path-to-regexp": "^6.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

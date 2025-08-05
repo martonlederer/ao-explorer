@@ -1,15 +1,16 @@
 import InfiniteScroll from "react-infinite-scroll-component";
 import { formatAddress, getTagValue } from "../utils/format";
 import { useContext, useEffect, useState } from "react";
-import { useGateway } from "../utils/hooks";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
-import gql from "arweave-graphql";
 import { Link } from "wouter";
 import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, formatTimestamp } from "./process";
 import { MarkedContext } from "../components/MarkedProvider";
-import { BookmarkIcon, RewindIcon } from "@iconicicons/react";
+import { BookmarkIcon } from "@iconicicons/react";
 import { useActiveAddress } from "@arweave-wallet-kit/react";
+import { client } from "../utils/gql_client";
+import { GetAllMessages } from "../queries/messages";
+import { GetAllProcesses, GetBookmarkedProcesses, GetOwnedProcesses } from "../queries/processes";
 
 interface MessageListItem {
   id: string;
@@ -24,22 +25,19 @@ interface MessageListItem {
 export default function Home() {
   const [processes, setProcesses] = useState<Process[]>([]);
   const [hasMoreProcesses, setHasMoreProcesses] = useState(true);
-  const gateway = useGateway();
 
   async function fetchProcesses() {
-    const res = await gql(`${gateway}/graphql`).getTransactions({
-      tags: [
-        { name: "Data-Protocol", values: ["ao"] },
-        { name: "Type", values: ["Process"] }
-      ],
-      first: 100,
-      after: processes[processes.length - 1]?.cursor
+    const res = await client.query({
+      query: GetAllProcesses,
+      variables: {
+        cursor: processes[processes.length - 1]?.cursor
+      }
     });
 
-    setHasMoreProcesses(res.transactions.pageInfo.hasNextPage);
+    setHasMoreProcesses(res.data.transactions.pageInfo.hasNextPage);
     setProcesses((val) => [
       ...val,
-      ...res.transactions.edges.map((tx) => ({
+      ...res.data.transactions.edges.map((tx) => ({
         id: tx.node.id,
         name: tx.node.tags.find((tag) => tag.name === "Name")?.value || "-",
         creator: tx.node.owner.address,
@@ -59,20 +57,18 @@ export default function Home() {
 
   async function fetchOwnedProcesses() {
     if (!address) return;
-    const res = await gql(`${gateway}/graphql`).getTransactions({
-      owners: [address],
-      tags: [
-        { name: "Data-Protocol", values: ["ao"] },
-        { name: "Type", values: ["Process"] }
-      ],
-      first: 100,
-      after: ownedProcesses[ownedProcesses.length - 1]?.cursor
+    const res = await client.query({
+      query: GetOwnedProcesses,
+      variables: {
+        owner: address,
+        cursor: ownedProcesses[ownedProcesses.length - 1]?.cursor
+      }
     });
 
-    setHasMoreOwnedProcesses(res.transactions.pageInfo.hasNextPage);
+    setHasMoreOwnedProcesses(res.data.transactions.pageInfo.hasNextPage);
     setOwnedProcesses((val) => [
       ...val,
-      ...res.transactions.edges.map((tx) => ({
+      ...res.data.transactions.edges.map((tx) => ({
         id: tx.node.id,
         name: tx.node.tags.find((tag) => tag.name === "Name")?.value || "-",
         creator: tx.node.owner.address,
@@ -93,19 +89,17 @@ export default function Home() {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
 
   async function fetchMessages() {
-    const res = await gql(`${gateway}/graphql`).getTransactions({
-      tags: [
-        { name: "Data-Protocol", values: ["ao"] },
-        { name: "Type", values: ["Message"] }
-      ],
-      first: 100,
-      after: messages[messages.length - 1]?.cursor
+    const res = await client.query({
+      query: GetAllMessages,
+      variables: {
+        cursor: messages[messages.length - 1]?.cursor
+      }
     });
 
-    setHasMoreMessages(res.transactions.pageInfo.hasNextPage);
+    setHasMoreMessages(res.data.transactions.pageInfo.hasNextPage);
     setMessages((val) => [
       ...val,
-      ...res.transactions.edges.map((tx) => ({
+      ...res.data.transactions.edges.map((tx) => ({
         id: tx.node.id,
         action: getTagValue("Action", tx.node.tags) || "-",
         from: getTagValue("From-Process", tx.node.tags) || tx.node.owner.address,
@@ -130,16 +124,14 @@ export default function Home() {
       if (markedProcesses.length === 0) return;
       setLoadingMarkedProcessDatas(true);
       try {
-        const res = await gql(`${gateway}/graphql`).getTransactions({
-          ids: markedProcesses,
-          tags: [
-            { name: "Data-Protocol", values: ["ao"] },
-            { name: "Type", values: ["Process"] }
-          ],
-          first: 100
+        const res = await client.query({
+          query: GetBookmarkedProcesses,
+          variables: {
+            marked: markedProcesses
+          }
         });
 
-        setMarkedProcessDatas(res.transactions.edges.map((tx) => ({
+        setMarkedProcessDatas(res.data.transactions.edges.map((tx) => ({
           id: tx.node.id,
           name: tx.node.tags.find((tag) => tag.name === "Name")?.value || "-",
           creator: tx.node.owner.address,
