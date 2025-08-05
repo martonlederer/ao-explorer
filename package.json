@@ -23,6 +23,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@permaweb/aoconnect": "^0.0.43",
     "ao-tokens-lite": "^0.0.9",
+    "apollo3-cache-persist": "^0.15.0",
     "arweave-wallet-connector": "^1.0.2",
     "dayjs": "^1.11.10",
     "graphql": "^16.11.0",

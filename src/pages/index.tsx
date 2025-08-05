@@ -8,9 +8,9 @@ import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, formatTime
 import { MarkedContext } from "../components/MarkedProvider";
 import { BookmarkIcon } from "@iconicicons/react";
 import { useActiveAddress } from "@arweave-wallet-kit/react";
-import { client } from "../utils/gql_client";
 import { GetAllMessages } from "../queries/messages";
 import { GetAllProcesses, GetBookmarkedProcesses, GetOwnedProcesses } from "../queries/processes";
+import { useApolloClient } from "@apollo/client";
 
 interface MessageListItem {
   id: string;
@@ -23,6 +23,8 @@ interface MessageListItem {
 }
 
 export default function Home() {
+  const client = useApolloClient();
+
   const [processes, setProcesses] = useState<Process[]>([]);
   const [hasMoreProcesses, setHasMoreProcesses] = useState(true);
 
@@ -141,7 +143,7 @@ export default function Home() {
       } catch {}
       setLoadingMarkedProcessDatas(false);
     })();
-  }, [markedProcesses]);
+  }, [markedProcesses, client]);
 
   return (
     <Wrapper>

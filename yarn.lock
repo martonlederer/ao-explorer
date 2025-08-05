@@ -1692,6 +1692,11 @@ ao-tokens-lite@^0.0.9:
   resolved "https://registry.npmjs.org/ao-tokens-lite/-/ao-tokens-lite-0.0.9.tgz"
   integrity sha512-guezLhr6x90446gOlI37R8TqBHn10OCRkzlO5NNLEHp6ZKgD1adsQ//rV9M4WJvr1miSdJC2Qbz+fiUP+Zn5hQ==
 
+apollo3-cache-persist@^0.15.0:
+  version "0.15.0"
+  resolved "https://registry.yarnpkg.com/apollo3-cache-persist/-/apollo3-cache-persist-0.15.0.tgz#aee23062bc811f3bc15369b850002f54195a6572"
+  integrity sha512-asxhPOHGddgXYvY4/Wa+XLODYpjci/kPB4zdy82D0tVGzVmvO4lqp3k06NtzHvd//gd9kCnTaG8iziwAcXZYjw==
+
 arconnect@^0.4.2:
   version "0.4.2"
   resolved "https://registry.npmjs.org/arconnect/-/arconnect-0.4.2.tgz"

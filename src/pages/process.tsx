@@ -23,9 +23,9 @@ import { Quantity } from "ao-tokens-lite";
 import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
-import { client } from "../utils/gql_client";
 import { GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
 import { GetSchedulerLocation, GetSpawnMessage, GetSpawnedBy, Tag } from "../queries/processes";
+import { useApolloClient } from "@apollo/client";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -110,6 +110,7 @@ const wellKnownTokens = {
 export default function Process({ id }: Props) {
   const [initTx, setInitTx] = useState<TransactionNode | "loading">("loading");
   const gateway = useGateway();
+  const client = useApolloClient();
 
   useEffect(() => {
     (async () => {
@@ -121,7 +122,7 @@ export default function Process({ id }: Props) {
 
       setInitTx(res.data.transactions.edges[0]?.node as TransactionNode);
     })();
-  }, [id, gateway]);
+  }, [id, gateway, client]);
 
   const tags = useMemo(() => {
     const tagRecord: { [name: string]: string } = {};

@@ -6,10 +6,10 @@ import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { useApolloClient } from "@apollo/client";
 import { ShareIcon } from "@iconicicons/react";
 import { Editor } from "@monaco-editor/react";
 import { result } from "@permaweb/aoconnect";
-import { client } from "../utils/gql_client";
 import { useGateway } from "../utils/hooks";
 import { Tag } from "../queries/processes";
 import { styled } from "@linaria/react";
@@ -30,6 +30,7 @@ export interface Message {
 export default function Interaction({ interaction }: Props) {
   const [message, setMessage] = useState<TransactionNode | "loading" | undefined>("loading");
   const gateway = useGateway();
+  const client = useApolloClient();
 
   const process = useMemo<string | undefined>(() => {
     if (message === "loading" || !message) return undefined;
@@ -71,7 +72,7 @@ export default function Interaction({ interaction }: Props) {
     return () => {
       cancel = true;
     };
-  }, [process, interaction, gateway]);
+  }, [process, interaction, gateway, client]);
 
   const tags = useMemo(() => {
     const tagRecord: { [name: string]: string } = {};
@@ -152,7 +153,7 @@ export default function Interaction({ interaction }: Props) {
       } catch {}
       setLoadingMessages(false);
     })();
-  }, [message, gateway, res]);
+  }, [message, gateway, res, client]);
 
   const [messagesMode, setMessagesMode] = useState<"resulting" | "linked">("resulting");
 

@@ -14,8 +14,9 @@ import { css } from "@linaria/core";
 import Nav from "./components/Nav";
 import Home from "./pages";
 import { MarkedProvider } from "./components/MarkedProvider";
-import { ApolloProvider } from "@apollo/client";
-import { client } from "./utils/gql_client";
+import { ApolloClient, ApolloProvider, NormalizedCacheObject } from "@apollo/client";
+import { setupApollo } from "./utils/gql_client";
+import { useEffect, useState } from "react";
 
 const convertPathToRegexp = (path: string) => {
   let keys: Key[] = [];
@@ -28,6 +29,15 @@ const customMatcher = makeCachedMatcher(convertPathToRegexp);
 
 function App() {
   const gateway = useGateway();
+  const [apolloClient, setApolloClient] = useState<ApolloClient<NormalizedCacheObject> | undefined>();
+
+  useEffect(() => {
+    setupApollo()
+      .then((client) => setApolloClient(client))
+      .catch((e) => console.log("Failed to setup Apollo Client: " + (e?.message || e)));
+  }, []);
+
+  if (!apolloClient) return <></>;
 
   return (
     <ArweaveWalletKit
@@ -58,7 +68,7 @@ function App() {
         }
       }}
     >
-      <ApolloProvider client={client}>
+      <ApolloProvider client={apolloClient}>
         <MarkedProvider>
           <>
             <BgBlur />
