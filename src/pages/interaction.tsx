@@ -17,6 +17,8 @@ import Table from "../components/Table";
 import { LoadingStatus } from "./index";
 import { Link } from "wouter";
 import dayjs from "dayjs";
+import { generateMessageGraph, getLinkedMessages } from "../utils/message_graph";
+import { Graph, GraphNode, GraphLink, GraphData } from "react-d3-graph";
 
 dayjs.extend(relativeTime);
 
@@ -118,8 +120,9 @@ export default function Interaction({ interaction }: Props) {
     })();
   }, [process, message]);
 
-  const [resultingMessages, setResultingMessages] = useState<{ node: TransactionNode }[]>([]);
-  const [linkedMessages, setLinkedMessages] = useState<{ node: TransactionNode }[]>([]);
+  const [resultingMessages, setResultingMessages] = useState<TransactionNode[]>([]);
+  const [linkedMessages, setLinkedMessages] = useState<TransactionNode[]>([]);
+  const [messageGraph, setMessageGraph] = useState<GraphData<GraphNode, GraphLink> | undefined>();
   const [loadingMessages, setLoadingMessages] = useState(true);
 
   useEffect(() => {
@@ -127,65 +130,44 @@ export default function Interaction({ interaction }: Props) {
       if (!message || message === "loading" || !res) return;
       setLoadingMessages(true);
       try {
-        const pushedMessagesRes = await client.query({
-          query: GetLinkedMessages,
-          variables: { pushedFor: tags["Pushed-For"] || message.id }
-        });
-        // need to create a new array, because it is non-extensible by default
-        const pushedMessages = [...pushedMessagesRes.data.transactions.edges];
+        const res = await getLinkedMessages(message, client);
 
-        // find original message
-        if (typeof tags["Pushed-For"] !== "undefined") {
-          const originalMessage = await client.query({
-            query: GetMessage,
-            variables: { id: tags["Pushed-For"] }
-          });
-
-          if (originalMessage.data.transactions.edges.length > 0)
-            pushedMessages.push(originalMessage.data.transactions.edges[0]);
-        }
-
-        setLinkedMessages(pushedMessages.filter(
-          (edge) => edge.node.id !== message.id
+        setLinkedMessages([res.originalMessage, ...res.linkedMessages].filter(
+          (node) => node.id !== message.id
         ));
+
+        try {
+          const graph = await generateMessageGraph(res);
+          graph.nodes = graph.nodes.map(
+            node => ({
+              id: node.id,
+              fontColor: node.id === message.id ? "#04ff00" : "#fff"
+            })
+          );
+          setMessageGraph(graph);
+        } catch (e) { console.log(e) }
 
         // array of references from the messages produced by this interaction
         // this is required to filter out messages pushed for this interaction,
         // from all messages pushed for the original message
-        const resultingRefs = res.Messages
-          .map((msg: Message) => getTagValue("Ref_", msg.Tags) || getTagValue("Reference", msg.Tags))
-          .filter((ref: string | undefined) => typeof ref === "string");
+        //
+        // TODO: get from graph
+        //
+        // const resultingRefs = res.Messages
+        //   .map((msg: Message) => getTagValue("Ref_", msg.Tags) || getTagValue("Reference", msg.Tags))
+        //   .filter((ref: string | undefined) => typeof ref === "string");
 
-        setResultingMessages(pushedMessages.filter(
-          (edge) => {
-            const ref = getTagValue("Ref_", edge.node.tags) || getTagValue("Reference", edge.node.tags);
+        // setResultingMessages(pushedMessages.filter(
+        //   (edge) => {
+        //     const ref = getTagValue("Ref_", edge.node.tags) || getTagValue("Reference", edge.node.tags);
 
-            return ref && resultingRefs.includes(ref) && edge.node.id !== message.id;
-          }
-        ));
+        //     return ref && resultingRefs.includes(ref) && edge.node.id !== message.id;
+        //   }
+        // ));
       } catch {}
       setLoadingMessages(false);
     })();
   }, [message, gateway, res, client]);
-
-  const linkedMessagesGraph = useMemo(
-    () => {
-      if (!message || message === "loading") return undefined;
-
-      const nodes: { id: string }[] = [];
-      const links: { source: string; target: string }[] = [];
-
-      // sort using references
-      const messages = [...linkedMessages.map((edge) => edge.node), message];
-
-      const findResultsFor = (node: TransactionNode) => {
-
-      };
-
-      return { nodes, links };
-    },
-    [linkedMessages, message]
-  );
 
   const [messagesMode, setMessagesMode] = useState<"resulting" | "linked">("resulting");
 
@@ -340,28 +322,28 @@ export default function Interaction({ interaction }: Props) {
           <tr key={i}>
             <td></td>
             <td>
-              <Link to={`#/message/${msg.node.id}`}>
-                {formatAddress(msg.node.id)}
+              <Link to={`#/message/${msg.id}`}>
+                {formatAddress(msg.id)}
               </Link>
             </td>
             <td>
-              {msg.node.tags.find((t: Tag) => t.name === "Action")?.value || "-"}
+              {msg.tags.find((t: Tag) => t.name === "Action")?.value || "-"}
             </td>
             <td>
-              <Link to={`#/process/${getTagValue("From-Process", msg.node.tags) || msg.node.owner.address}`}>
-                {formatAddress(getTagValue("From-Process", msg.node.tags) || msg.node.owner.address)}
+              <Link to={`#/process/${getTagValue("From-Process", msg.tags) || msg.owner.address}`}>
+                {formatAddress(getTagValue("From-Process", msg.tags) || msg.owner.address)}
               </Link>
             </td>
             <td>
-              <Link to={`#/process/${msg.node.recipient}`}>
-                {formatAddress(msg.node.recipient)}
+              <Link to={`#/process/${msg.recipient}`}>
+                {formatAddress(msg.recipient)}
               </Link>
             </td>
             <td>
-              {msg.node.block?.height || "Pending..."}
+              {msg.block?.height || "Pending..."}
             </td>
             <td>
-              {(msg.node.block?.timestamp && dayjs(msg.node.block.timestamp * 1000).fromNow()) || "Pending..."}
+              {(msg.block?.timestamp && dayjs(msg.block.timestamp * 1000).fromNow()) || "Pending..."}
             </td>
           </tr>
         ))}
@@ -378,6 +360,34 @@ export default function Interaction({ interaction }: Props) {
         </LoadingStatus>
       )}
       <Space />
+      {messageGraph && (
+        <>
+          <div style={{ width: "1000px", height: "600px" }}>
+          <Graph id="message-map" data={messageGraph} config={{
+            panAndZoom: true,
+            directed: true,
+            nodeHighlightBehavior: true,
+            node: {
+              color: "#04ff00",
+              size: 120,
+              labelProperty: (node) => formatAddress(node.id, 8),
+              highlightStrokeColor: "blue",
+              fontColor: "#fff",
+            },
+            link: {
+              type: "CURVE_SMOOTH",
+              highlightColor: "lightblue",
+            },
+            d3: {
+              gravity: -200,
+              linkLength: 150,
+              alphaTarget: 0.05,
+            }
+          }} />
+          </div>
+          <Space />
+        </>
+      )}
       <QueryTab style={{ gap: "1rem 2rem" }}>
         <DataTitle>Data</DataTitle>
         <DataTitle>Result</DataTitle>

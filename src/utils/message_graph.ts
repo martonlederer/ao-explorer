@@ -3,7 +3,7 @@ import { GetLinkedMessages, GetMessage, TransactionNode } from "../queries/messa
 import { getTagValue } from "./format";
 import { ApolloClient } from "@apollo/client";
 import { Message } from "../pages/interaction";
-
+import { GraphNode } from "react-d3-graph";
 /**
  * Returns the linked messages for a given message object
  */
@@ -44,13 +44,13 @@ export async function generateMessageGraph(data: Awaited<ReturnType<typeof getLi
     });
 
     return data.linkedMessages.filter(
-      (msg1) => !!res.Messages.find(
-        (msg2) => getTagValue("Reference", msg1.tags) === getTagValue("Reference", msg2.tags)
+      (msg1) => !!(res.Messages || []).find(
+        (msg2: Message) => getTagValue("Reference", msg1.tags) === getTagValue("Reference", msg2.Tags)
       )
     );
   };
 
-  const nodes: { id: string }[] = [];
+  const nodes: GraphNode[] = [];
   const links: { source: string; target: string }[] = [];
   const nodeQueue = [data.originalMessage];
 
@@ -70,21 +70,4 @@ export async function generateMessageGraph(data: Awaited<ReturnType<typeof getLi
   }
 
   return { nodes, links };
-}
-
-/**
- * Gets the result of multiple messages
- */
-export async function getMessageResults(process: string, messages: TransactionNode[]) {
-  return await Promise.all(messages.map(async (msg) => {
-    const res = await result({
-      process,
-      message: msg.id
-    });
-
-    return {
-      ...msg,
-      results: (res.Messages || []) as Message[]
-    };
-  }));
 }
