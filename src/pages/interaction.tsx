@@ -127,12 +127,25 @@ export default function Interaction({ interaction }: Props) {
       if (!message || message === "loading" || !res) return;
       setLoadingMessages(true);
       try {
-        const pushedMessages = await client.query({
+        const pushedMessagesRes = await client.query({
           query: GetLinkedMessages,
           variables: { pushedFor: tags["Pushed-For"] || message.id }
         });
+        // need to create a new array, because it is non-extensible by default
+        const pushedMessages = [...pushedMessagesRes.data.transactions.edges];
 
-        setLinkedMessages(pushedMessages.data.transactions.edges.filter(
+        // find original message
+        if (typeof tags["Pushed-For"] !== "undefined") {
+          const originalMessage = await client.query({
+            query: GetMessage,
+            variables: { id: tags["Pushed-For"] }
+          });
+
+          if (originalMessage.data.transactions.edges.length > 0)
+            pushedMessages.push(originalMessage.data.transactions.edges[0]);
+        }
+
+        setLinkedMessages(pushedMessages.filter(
           (edge) => edge.node.id !== message.id
         ));
 
@@ -143,7 +156,7 @@ export default function Interaction({ interaction }: Props) {
           .map((msg: Message) => getTagValue("Ref_", msg.Tags) || getTagValue("Reference", msg.Tags))
           .filter((ref: string | undefined) => typeof ref === "string");
 
-        setResultingMessages(pushedMessages.data.transactions.edges.filter(
+        setResultingMessages(pushedMessages.filter(
           (edge) => {
             const ref = getTagValue("Ref_", edge.node.tags) || getTagValue("Reference", edge.node.tags);
 
@@ -154,6 +167,25 @@ export default function Interaction({ interaction }: Props) {
       setLoadingMessages(false);
     })();
   }, [message, gateway, res, client]);
+
+  const linkedMessagesGraph = useMemo(
+    () => {
+      if (!message || message === "loading") return undefined;
+
+      const nodes: { id: string }[] = [];
+      const links: { source: string; target: string }[] = [];
+
+      // sort using references
+      const messages = [...linkedMessages.map((edge) => edge.node), message];
+
+      const findResultsFor = (node: TransactionNode) => {
+
+      };
+
+      return { nodes, links };
+    },
+    [linkedMessages, message]
+  );
 
   const [messagesMode, setMessagesMode] = useState<"resulting" | "linked">("resulting");
 
