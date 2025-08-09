@@ -1,6 +1,7 @@
-import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
+import { LinkedMessageData, getLinkedMessages, useMessageGraph, useSortedGraph } from "../utils/message_graph";
 import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Wrapper } from "../components/Page";
-import { GetLinkedMessages, GetMessage, TransactionNode } from "../queries/messages";
+import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
+import { GetMessage, TransactionNode } from "../queries/messages";
 import { formatAddress, formatJSONOrString, getTagValue } from "../utils/format";
 import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import TagEl, { TagsWrapper } from "../components/Tag";
@@ -17,8 +18,8 @@ import Table from "../components/Table";
 import { LoadingStatus } from "./index";
 import { Link } from "wouter";
 import dayjs from "dayjs";
-import { generateMessageGraph, getLinkedMessages } from "../utils/message_graph";
-import { Graph, GraphNode, GraphLink, GraphData } from "react-d3-graph";
+import { Graph, GraphNode } from "react-d3-graph";
+import { useLocation } from "wouter";
 
 dayjs.extend(relativeTime);
 
@@ -28,6 +29,27 @@ export interface Message {
   Target: string;
   Data: string;
 }
+
+const graphConfig = {
+  directed: true,
+  //staticGraph: true,
+  node: {
+    color: "#04ff00",
+    size: 120,
+    labelProperty: (node: GraphNode) => formatAddress(node.id, 8),
+    highlightStrokeColor: "blue",
+    fontColor: "#fff"
+  },
+  link: {
+    type: "CURVE_SMOOTH",
+    highlightColor: "lightblue"
+  },
+  d3: {
+    gravity: -200,
+    linkLength: 150,
+    alphaTarget: 0.05
+  }
+};
 
 export default function Interaction({ interaction }: Props) {
   const [message, setMessage] = useState<TransactionNode | "loading" | undefined>("loading");
@@ -120,10 +142,29 @@ export default function Interaction({ interaction }: Props) {
     })();
   }, [process, message]);
 
-  const [resultingMessages, setResultingMessages] = useState<TransactionNode[]>([]);
-  const [linkedMessages, setLinkedMessages] = useState<TransactionNode[]>([]);
-  const [messageGraph, setMessageGraph] = useState<GraphData<GraphNode, GraphLink> | undefined>();
+  const [graphData, setGraphData] = useState<LinkedMessageData | undefined>();
   const [loadingMessages, setLoadingMessages] = useState(true);
+
+  const messageGraph = useMessageGraph(graphData);
+  const sortedGraph = useSortedGraph(messageGraph);
+
+  const linkedMessages = useMemo(
+    () => {
+      if (!graphData || !message || message === "loading") return [];
+      return [graphData.originalMessage, ...graphData.linkedMessages].filter(
+        (node) => node.id !== message.id
+      );
+    },
+    [graphData, message]
+  );
+  const resultingMessages = useMemo(
+    () => {
+      if (!message || message === "loading") return [];
+      const linksFrom = messageGraph.links.filter((link) => link.source === message.id);
+      return linkedMessages.filter((msg) => linksFrom.find((link) => link.target === msg.id));
+    },
+    [linkedMessages, messageGraph, message]
+  );
 
   useEffect(() => {
     (async () => {
@@ -132,20 +173,18 @@ export default function Interaction({ interaction }: Props) {
       try {
         const res = await getLinkedMessages(message, client);
 
-        setLinkedMessages([res.originalMessage, ...res.linkedMessages].filter(
-          (node) => node.id !== message.id
-        ));
+        setGraphData(res);
 
-        try {
-          const graph = await generateMessageGraph(res);
-          graph.nodes = graph.nodes.map(
-            node => ({
-              id: node.id,
-              fontColor: node.id === message.id ? "#04ff00" : "#fff"
-            })
-          );
-          setMessageGraph(graph);
-        } catch (e) { console.log(e) }
+        // try {
+        //   const graph = await generateMessageGraph(res);
+        //   graph.nodes = graph.nodes.map(
+        //     node => ({
+        //       id: node.id,
+        //       fontColor: node.id === message.id ? "#04ff00" : "#fff"
+        //     })
+        //   );
+        //   setMessageGraph(graph);
+        // } catch (e) { console.log(e) }
 
         // array of references from the messages produced by this interaction
         // this is required to filter out messages pushed for this interaction,
@@ -170,6 +209,8 @@ export default function Interaction({ interaction }: Props) {
   }, [message, gateway, res, client]);
 
   const [messagesMode, setMessagesMode] = useState<"resulting" | "linked">("resulting");
+
+  const [, setLocation] = useLocation();
 
   if (!message || message == "loading") {
     return (
@@ -360,30 +401,15 @@ export default function Interaction({ interaction }: Props) {
         </LoadingStatus>
       )}
       <Space />
-      {messageGraph && (
+      {sortedGraph && (
         <>
-          <div style={{ width: "1000px", height: "600px" }}>
-          <Graph id="message-map" data={messageGraph} config={{
-            panAndZoom: true,
-            directed: true,
-            nodeHighlightBehavior: true,
-            node: {
-              color: "#04ff00",
-              size: 120,
-              labelProperty: (node) => formatAddress(node.id, 8),
-              highlightStrokeColor: "blue",
-              fontColor: "#fff",
-            },
-            link: {
-              type: "CURVE_SMOOTH",
-              highlightColor: "lightblue",
-            },
-            d3: {
-              gravity: -200,
-              linkLength: 150,
-              alphaTarget: 0.05,
-            }
-          }} />
+          <div style={{ height: "350px" }}>
+            <Graph
+              id="message-map"
+              data={sortedGraph}
+              config={graphConfig}
+              onClickNode={(node) => setLocation("/message/" + node)}
+            />
           </div>
           <Space />
         </>
