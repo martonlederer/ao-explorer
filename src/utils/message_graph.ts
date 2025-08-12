@@ -103,11 +103,11 @@ export function useMessageGraph(data?: Awaited<ReturnType<typeof getLinkedMessag
   return { nodes, links };
 }
 
-export function useSortedGraph({ nodes, links }: GraphData<GraphNode, GraphLink>) {
+export function useSortedGraph({ nodes, links }: GraphData<GraphNode, GraphLink>, graphDimensions: { width?: number; height?: number }, currentMessage?: TransactionNode | "loading") {
   return useMemo(
     () => {
       const g = new dagre.graphlib.Graph();
-      g.setGraph({ rankdir: "LR", nodesep: 100, ranksep: 100 });
+      g.setGraph({ rankdir: "LR", nodesep: 50, ranksep: 50 });
       g.setDefaultEdgeLabel(() => ({}));
 
       for (const node of nodes) {
@@ -120,14 +120,39 @@ export function useSortedGraph({ nodes, links }: GraphData<GraphNode, GraphLink>
 
       dagre.layout(g);
 
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+
+      g.nodes().forEach((v) => {
+        const { x, y, width: w, height: h } = g.node(v);
+        minX = Math.min(minX, x - w / 2);
+        maxX = Math.max(maxX, x + w / 2);
+        minY = Math.min(minY, y - h / 2);
+        maxY = Math.max(maxY, y + h / 2);
+      });
+
+      const scale = Math.min(
+        (graphDimensions.width || 0) / (maxX - minX),
+        (graphDimensions.height || 0) / (maxY - minY)
+      );
+
       return {
         nodes: nodes.map(n => {
           const { x, y } = g.node(n.id);
-          return { ...n, x, y };
+          if (currentMessage !== "loading" && n.id === currentMessage?.id) {
+            n.fontColor = "#04ff00";
+          }
+          return {
+            ...n,
+            x: (x - minX) * scale,
+            y: (y - minY) * scale
+          };
         }),
         links
       };
     },
-    [nodes, links]
-  )
+    [nodes, links, currentMessage, graphDimensions]
+  );
 }

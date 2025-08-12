@@ -40,6 +40,7 @@
     "react-d3-graph": "^2.1.0",
     "react-dom": "^18.2.0",
     "react-infinite-scroll-component": "^6.1.0",
+    "react-resize-detector": "^12.1.0",
     "terminal-codes-to-html": "^0.0.1",
     "wouter": "^2.12.1",
     "yarn": "^1.22.22"

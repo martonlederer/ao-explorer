@@ -1,4 +1,4 @@
-import { LinkedMessageData, getLinkedMessages, useMessageGraph, useSortedGraph } from "../utils/message_graph";
+import { LinkedMessageData, getLinkedMessages, useMessageGraph } from "../utils/message_graph";
 import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Wrapper } from "../components/Page";
 import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
 import { GetMessage, TransactionNode } from "../queries/messages";
@@ -18,8 +18,9 @@ import Table from "../components/Table";
 import { LoadingStatus } from "./index";
 import { Link } from "wouter";
 import dayjs from "dayjs";
-import { Graph, GraphNode } from "react-d3-graph";
+import { Graph, GraphNode, GraphLink, GraphConfiguration } from "react-d3-graph";
 import { useLocation } from "wouter";
+import { useResizeDetector } from "react-resize-detector";
 
 dayjs.extend(relativeTime);
 
@@ -29,27 +30,6 @@ export interface Message {
   Target: string;
   Data: string;
 }
-
-const graphConfig = {
-  directed: true,
-  //staticGraph: true,
-  node: {
-    color: "#04ff00",
-    size: 120,
-    labelProperty: (node: GraphNode) => formatAddress(node.id, 8),
-    highlightStrokeColor: "blue",
-    fontColor: "#fff"
-  },
-  link: {
-    type: "CURVE_SMOOTH",
-    highlightColor: "lightblue"
-  },
-  d3: {
-    gravity: -200,
-    linkLength: 150,
-    alphaTarget: 0.05
-  }
-};
 
 export default function Interaction({ interaction }: Props) {
   const [message, setMessage] = useState<TransactionNode | "loading" | undefined>("loading");
@@ -142,11 +122,29 @@ export default function Interaction({ interaction }: Props) {
     })();
   }, [process, message]);
 
+  const { ref: graphRef, ...graphDimensions } = useResizeDetector();
+
   const [graphData, setGraphData] = useState<LinkedMessageData | undefined>();
   const [loadingMessages, setLoadingMessages] = useState(true);
 
-  const messageGraph = useMessageGraph(graphData);
-  const sortedGraph = useSortedGraph(messageGraph);
+  const messageGraphRaw = useMessageGraph(graphData);
+  const messageGraph = useMemo(
+    () => ({
+      nodes: messageGraphRaw.nodes.map((n) => {
+        if (message === "loading" || !message) return n;
+        if (n.id === message.id) {
+          return {
+            ...n,
+            fontColor: "#04ff00"
+          };
+        }
+        return n;
+      }),
+      links: messageGraphRaw.links
+    }),
+    [messageGraphRaw, message]
+  );
+  // const sortedGraph = useSortedGraph(messageGraph, graphDimensions, message);
 
   const linkedMessages = useMemo(
     () => {
@@ -174,41 +172,49 @@ export default function Interaction({ interaction }: Props) {
         const res = await getLinkedMessages(message, client);
 
         setGraphData(res);
-
-        // try {
-        //   const graph = await generateMessageGraph(res);
-        //   graph.nodes = graph.nodes.map(
-        //     node => ({
-        //       id: node.id,
-        //       fontColor: node.id === message.id ? "#04ff00" : "#fff"
-        //     })
-        //   );
-        //   setMessageGraph(graph);
-        // } catch (e) { console.log(e) }
-
-        // array of references from the messages produced by this interaction
-        // this is required to filter out messages pushed for this interaction,
-        // from all messages pushed for the original message
-        //
-        // TODO: get from graph
-        //
-        // const resultingRefs = res.Messages
-        //   .map((msg: Message) => getTagValue("Ref_", msg.Tags) || getTagValue("Reference", msg.Tags))
-        //   .filter((ref: string | undefined) => typeof ref === "string");
-
-        // setResultingMessages(pushedMessages.filter(
-        //   (edge) => {
-        //     const ref = getTagValue("Ref_", edge.node.tags) || getTagValue("Reference", edge.node.tags);
-
-        //     return ref && resultingRefs.includes(ref) && edge.node.id !== message.id;
-        //   }
-        // ));
       } catch {}
       setLoadingMessages(false);
     })();
   }, [message, gateway, res, client]);
 
   const [messagesMode, setMessagesMode] = useState<"resulting" | "linked">("resulting");
+  const [graphMode, setGraphMode] = useState<"messages" | "processes">("messages");
+
+  const graphConfig = useMemo<Partial<GraphConfiguration<GraphNode, GraphLink>>>(
+    () => ({
+      directed: true,
+      height: graphDimensions.height || 350,
+      width: graphDimensions.width || 800,
+      // staticGraph: true,
+      node: {
+        color: "#04ff00",
+        size: 120,
+        labelProperty: (node: GraphNode) => {
+          const action = getTagValue(
+            "Action",
+            [...(graphData?.linkedMessages || []), ...(graphData?.originalMessage ? [graphData.originalMessage] : [])].find(
+              (msg) => msg.id === node.id
+            )?.tags || []
+          );
+
+          if (!action) return formatAddress(node.id, 8);
+          return formatAddress(node.id, 6) + "/" + action;
+        },
+        highlightStrokeColor: "blue",
+        fontColor: "#fff"
+      },
+      link: {
+        type: "CURVE_SMOOTH",
+        highlightColor: "lightblue"
+      },
+      d3: {
+        gravity: -200,
+        linkLength: 150,
+        alphaTarget: 0.05
+      }
+    }),
+    [graphData, graphDimensions]
+  );
 
   const [, setLocation] = useLocation();
 
@@ -401,19 +407,37 @@ export default function Interaction({ interaction }: Props) {
         </LoadingStatus>
       )}
       <Space />
-      {sortedGraph && (
-        <>
-          <div style={{ height: "350px" }}>
-            <Graph
-              id="message-map"
-              data={sortedGraph}
-              config={graphConfig}
-              onClickNode={(node) => setLocation("/message/" + node)}
-            />
-          </div>
-          <Space />
-        </>
+      <InteractionsMenu>
+        <InteractionsWrapper>
+          <InteractionsMenuItem
+            active={graphMode === "messages"}
+            onClick={() => setGraphMode("messages")}
+          >
+            Message trace
+          </InteractionsMenuItem>
+          <InteractionsMenuItem
+            active={graphMode === "processes"}
+            onClick={() => setGraphMode("processes")}
+          >
+            Process trace
+          </InteractionsMenuItem>
+        </InteractionsWrapper>
+      </InteractionsMenu>
+      {(messageGraph.nodes.length > 0 && (
+        <div ref={graphRef} style={{ height: "350px" }}>
+          <Graph
+            id="message-map"
+            data={messageGraph}
+            config={graphConfig}
+            onClickNode={(node) => setLocation("/message/" + node)}
+          />
+        </div>
+      )) || (
+        <LoadingStatus>
+          Loading...
+        </LoadingStatus>
       )}
+      <Space />
       <QueryTab style={{ gap: "1rem 2rem" }}>
         <DataTitle>Data</DataTitle>
         <DataTitle>Result</DataTitle>
