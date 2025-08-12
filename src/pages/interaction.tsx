@@ -1,4 +1,4 @@
-import { LinkedMessageData, getLinkedMessages, useMessageGraph } from "../utils/message_graph";
+import { LinkedMessageData, getLinkedMessages, useMessageGraph, useProcessGraph } from "../utils/message_graph";
 import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Wrapper } from "../components/Page";
 import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
 import { GetMessage, TransactionNode } from "../queries/messages";
@@ -144,6 +144,7 @@ export default function Interaction({ interaction }: Props) {
     }),
     [messageGraphRaw, message]
   );
+  const processGraph = useProcessGraph(graphData);
   // const sortedGraph = useSortedGraph(messageGraph, graphDimensions, message);
 
   const linkedMessages = useMemo(
@@ -181,39 +182,47 @@ export default function Interaction({ interaction }: Props) {
   const [graphMode, setGraphMode] = useState<"messages" | "processes">("messages");
 
   const graphConfig = useMemo<Partial<GraphConfiguration<GraphNode, GraphLink>>>(
-    () => ({
-      directed: true,
-      height: graphDimensions.height || 350,
-      width: graphDimensions.width || 800,
-      // staticGraph: true,
-      node: {
-        color: "#04ff00",
-        size: 120,
-        labelProperty: (node: GraphNode) => {
-          const action = getTagValue(
-            "Action",
-            [...(graphData?.linkedMessages || []), ...(graphData?.originalMessage ? [graphData.originalMessage] : [])].find(
-              (msg) => msg.id === node.id
-            )?.tags || []
-          );
+    () => {
+      const baseConfig = {
+        directed: true,
+        height: graphDimensions.height || 350,
+        width: graphDimensions.width || 800,
+        // staticGraph: true,
+        node: {
+          color: "#04ff00",
+          size: 120,
+          labelProperty: (node: GraphNode) => {
+            if (graphMode === "processes") {
+              return formatAddress(node.id, 8);
+            }
 
-          if (!action) return formatAddress(node.id, 8);
-          return formatAddress(node.id, 6) + "/" + action;
+            const action = getTagValue(
+              "Action",
+              [...(graphData?.linkedMessages || []), ...(graphData?.originalMessage ? [graphData.originalMessage] : [])].find(
+                (msg) => msg.id === node.id
+              )?.tags || []
+            );
+
+            if (!action) return formatAddress(node.id, 8);
+            return formatAddress(node.id, 6) + "/" + action;
+          },
+          highlightStrokeColor: "blue",
+          fontColor: "#fff"
         },
-        highlightStrokeColor: "blue",
-        fontColor: "#fff"
-      },
-      link: {
-        type: "CURVE_SMOOTH",
-        highlightColor: "lightblue"
-      },
-      d3: {
-        gravity: -200,
-        linkLength: 150,
-        alphaTarget: 0.05
-      }
-    }),
-    [graphData, graphDimensions]
+        link: {
+          type: "CURVE_SMOOTH",
+          highlightColor: "lightblue"
+        },
+        d3: {
+          gravity: -200,
+          linkLength: 150,
+          alphaTarget: 0.05
+        }
+      };
+
+      return baseConfig;
+    },
+    [graphData, graphDimensions, graphMode, processGraph]
   );
 
   const [, setLocation] = useLocation();
@@ -423,11 +432,11 @@ export default function Interaction({ interaction }: Props) {
           </InteractionsMenuItem>
         </InteractionsWrapper>
       </InteractionsMenu>
-      {(messageGraph.nodes.length > 0 && (
+      {((graphMode === "messages" ? messageGraph : processGraph).nodes.length > 0 && (
         <div ref={graphRef} style={{ height: "350px" }}>
           <Graph
             id="message-map"
-            data={messageGraph}
+            data={graphMode === "messages" ? messageGraph : processGraph}
             config={graphConfig}
             onClickNode={(node) => setLocation("/message/" + node)}
           />

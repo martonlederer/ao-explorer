@@ -156,3 +156,41 @@ export function useSortedGraph({ nodes, links }: GraphData<GraphNode, GraphLink>
     [nodes, links, currentMessage, graphDimensions]
   );
 }
+
+export function useProcessGraph(data?: Awaited<ReturnType<typeof getLinkedMessages>>): GraphData<GraphNode, GraphLink> {
+  return useMemo(
+    () => {
+      if (!data) {
+        return {
+          links: [],
+          nodes: []
+        };
+      }
+
+      const messages = [data.originalMessage, ...data.linkedMessages];
+      const nodes: string[] = [];
+      const links: GraphLink[] = [];
+
+      for (const msg of messages) {
+        if (!nodes.includes(msg.recipient)) {
+          nodes.push(msg.recipient);
+        }
+        const sender = getTagValue("From-Process", msg.tags) || msg.owner.address;
+        if (!nodes.includes(sender)) {
+          nodes.push(sender);
+        }
+
+        links.push({
+          source: sender,
+          target: msg.recipient
+        });
+      }
+
+      return {
+        nodes: nodes.map((id) => ({ id })),
+        links
+      };
+    },
+    [data]
+  );
+}
