@@ -26,6 +26,7 @@ import { MarkedContext } from "../components/MarkedProvider";
 import { GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
 import { GetSchedulerLocation, GetSpawnMessage, GetSpawnedBy, Tag } from "../queries/processes";
 import { useApolloClient } from "@apollo/client";
+import EntityLink from "../components/EntityLink";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -774,7 +775,7 @@ export default function Process({ id }: Props) {
           <tr>
             <td>Owner</td>
             <td>
-              {owner && (
+              {/*{owner && (
                 (owner.type === "user" && (
                   <a
                     href={`https://viewblock.io/arweave/address/${owner.addr}`}
@@ -790,7 +791,8 @@ export default function Process({ id }: Props) {
                     <ShareIcon />
                   </Link>
                 )
-              )}
+              )}*/}
+              {owner && <EntityLink address={owner?.addr} />}
             </td>
           </tr>
           <tr>
