@@ -16,7 +16,10 @@ import { useInView } from "react-intersection-observer";
 const ario = ARIO.mainnet();
 
 export default function EntityLink({ address, transaction: defaultTransaction, accent, ...props }: HTMLProps<HTMLAnchorElement> & Props) {
-  const { ref, inView } = useInView({ triggerOnce: true });
+  const { ref, inView } = useInView({
+    triggerOnce: true,
+    rootMargin: "200px 0px"
+  });
 
   const { loading, data } = useQuery(GetTransaction, {
     variables: { id: address },

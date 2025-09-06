@@ -1047,14 +1047,10 @@ export default function Process({ id }: Props) {
                   </Link>
                 </td>
                 <td>
-                  <Link to={`#/process/${transfer.from}`}>
-                    {formatAddress(transfer.from, 8)}
-                  </Link>
+                  <EntityLink address={transfer.from} />
                 </td>
                 <td>
-                  <Link to={`#/process/${transfer.to}`}>
-                    {formatAddress(transfer.to, 8)}
-                  </Link>
+                  <EntityLink address={transfer.from} />
                 </td>
                 <td>
                   <Link to={`#/process/${transfer.token}`}>
@@ -1115,19 +1111,7 @@ export default function Process({ id }: Props) {
                   {(() => {
                     const fromProcess = interaction.node.message.tags.find((t: Tag) => t.name === "From-Process")?.value
 
-                    if (fromProcess) {
-                      return (
-                        <Link to={`#/process/${fromProcess}`}>
-                          {formatAddress(fromProcess)}
-                        </Link>
-                      )
-                    }
-
-                    return (
-                      <a href={`https://viewblock.io/arweave/address/${interaction.node.message.owner.address}`} target="_blank" rel="noopener noreferrer">
-                        {formatAddress(interaction.node.message.owner.address, 8)}
-                      </a>
-                    )
+                    return <EntityLink address={fromProcess || interaction.node.message.owner.address} />;
                   })()}
                 </td>
                 <td>
@@ -1178,9 +1162,7 @@ export default function Process({ id }: Props) {
                   {process.name}
                 </td>
                 <td>
-                  <a href={`https://viewblock.io/arweave/tx/${process.module}`} target="_blank" rel="noopener noreferrer">
-                    {formatAddress(process.module, 8)}
-                  </a>
+                  <EntityLink address={process.module} />
                 </td>
                 <td>
                   {process.block}
@@ -1226,9 +1208,7 @@ export default function Process({ id }: Props) {
                   {interaction.action}
                 </td>
                 <td>
-                  <Link to={`#/process/${interaction.target}`}>
-                    {formatAddress(interaction.target)}
-                  </Link>
+                  <EntityLink address={interaction.target} />
                 </td>
                 <td>
                   {interaction.block}
