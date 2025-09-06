@@ -775,23 +775,6 @@ export default function Process({ id }: Props) {
           <tr>
             <td>Owner</td>
             <td>
-              {/*{owner && (
-                (owner.type === "user" && (
-                  <a
-                    href={`https://viewblock.io/arweave/address/${owner.addr}`}
-                    target="_blank"
-                    rel="noopener noreferer"
-                  >
-                    {formatAddress(owner.addr)}
-                    <ShareIcon />
-                  </a>
-                )) || (
-                  <Link to={`#/process/${owner.addr}`}>
-                    {formatAddress(owner.addr)}
-                    <ShareIcon />
-                  </Link>
-                )
-              )}*/}
               {owner && <EntityLink address={owner?.addr} />}
             </td>
           </tr>
@@ -802,22 +785,22 @@ export default function Process({ id }: Props) {
           <tr>
             <td>Module</td>
             <td>
-              <a href={`https://viewblock.io/arweave/tx/${tags.Module}`} target="_blank" rel="noopener noreferer">
-                {formatAddress(tags["Module"])}
-                <ShareIcon />
-              </a>
+              <EntityLink address={tags.Module} />
             </td>
           </tr>
           <tr>
             <td>Scheduler</td>
             <td>
-              {schedulerURL?.host || ""}
-              {" ("}
-              <a href={`https://viewblock.io/arweave/address/${tags.Scheduler}`} target="_blank" rel="noopener noreferer">
-                {formatAddress(tags.Scheduler, schedulerURL?.host ? 6 : 13)}
-                <ShareIcon />
-              </a>
-              {")"}
+              {(schedulerURL?.host && (
+                <>
+                {schedulerURL.host}
+                  {" ("}
+                  <EntityLink address={tags.Scheduler} />
+                  {")"}
+                </>
+              )) || (
+                <EntityLink address={tags.Scheduler} />
+              )}
             </td>
           </tr>
           <tr>
@@ -977,9 +960,7 @@ export default function Process({ id }: Props) {
               <td></td>
               <td>{i + 1}.</td>
               <td>
-                <Link to={`#/process/${item.addr}`}>
-                  {formatAddress(item.addr)}
-                </Link>
+                <EntityLink address={item.addr} />
               </td>
               <td style={{ display: "flex", alignItems: "center" }}>
                 <span>

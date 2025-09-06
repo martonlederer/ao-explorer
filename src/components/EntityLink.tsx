@@ -10,18 +10,27 @@ import { dryrun } from "@permaweb/aoconnect";
 import { Message } from "../pages/interaction";
 import { useGateway } from "../utils/hooks";
 import { TokenLogo } from "./Page";
+import { GetMessageType } from "../queries/messages";
+import { useInView } from "react-intersection-observer";
 
 const ario = ARIO.mainnet();
 
-export default function EntityLink({ address, ...props }: HTMLProps<HTMLAnchorElement> & Props) {
-  const { loading, data: transaction } = useQuery(GetTransaction, {
-    variables: { id: address }
+export default function EntityLink({ address, transaction: defaultTransaction, accent, ...props }: HTMLProps<HTMLAnchorElement> & Props) {
+  const { ref, inView } = useInView({ triggerOnce: true });
+
+  const { loading, data } = useQuery(GetTransaction, {
+    variables: { id: address },
+    skip: !!defaultTransaction || !inView
   });
+  const transaction = useMemo(
+    () => defaultTransaction || data?.transactions?.edges?.[0]?.node,
+    [defaultTransaction, data]
+  );
 
   const tags = useMemo(
     () => {
-      if (loading || !transaction?.transactions?.edges?.[0]) return {};
-      return Object.fromEntries(transaction.transactions.edges[0].node.tags.map(t => [t.name, t.value]));
+      if (loading || !transaction) return {};
+      return Object.fromEntries(transaction.tags.map(t => [t.name, t.value]));
     },
     [loading, transaction]
   );
@@ -32,17 +41,29 @@ export default function EntityLink({ address, ...props }: HTMLProps<HTMLAnchorEl
     (async () => {
       try {
         setArnsName(undefined);
+
+        if (!inView) return;
+        if (defaultTransaction) {
+          const type = defaultTransaction.tags.find(t => t.name === "Type")?.value;
+
+          if (type === "Message" || type === "Module" || type === "Assignment") return;
+        }
+
         const res = await ario.getPrimaryName({ address });
         setArnsName(res?.name);
       } catch {}
     })();
-  }, [address]);
+  }, [address, defaultTransaction, inView]);
 
   const [info, setInfo] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
       setInfo({});
+
+      if (defaultTransaction && !!defaultTransaction.tags.find(t => t.name === "Type" && t.value !== "Process") || !inView) {
+        return;
+      }
 
       const res = await dryrun({
         process: address,
@@ -58,12 +79,12 @@ export default function EntityLink({ address, ...props }: HTMLProps<HTMLAnchorEl
       // @ts-expect-error
       setInfo(infoRes.Tags.map(t => [t.name, t.value]))
     })();
-  }, [address]);
+  }, [address, defaultTransaction, inView]);
 
   const gateway = useGateway();
 
   return (
-    <Wrapper to={"#/" + address} state={{ transaction }} {...props}>
+    <Wrapper to={"#/" + address} state={{ transaction }} accent={accent} ref={ref} {...props}>
       {info.Name || arnsName || tags.Name || formatAddress(address)}
       {(info.Logo || arnsName) && (
         <TokenLogo src={info.Logo ? `${gateway}/${info.Logo}` : "/arns.svg"} draggable={false} />
@@ -77,6 +98,7 @@ export default function EntityLink({ address, ...props }: HTMLProps<HTMLAnchorEl
 
 interface Props {
   address: string;
+  transaction?: GetMessageType["transactions"]["edges"][0]["node"];
   accent?: boolean;
 }
 
@@ -105,13 +127,14 @@ const Tooltip = styled.span`
   }
 `;
 
-const Wrapper = styled(Link) <{ accent?: boolean }>`
+const Wrapper = styled(Link)<{ accent?: boolean }>`
   position: relative;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: .26rem;
   color: ${props => props.accent ? "#04ff00" : "inherit"};
+  width: max-content;
   transition: .17s ease-in-out;
 
   svg {
