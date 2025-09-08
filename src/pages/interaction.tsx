@@ -244,7 +244,7 @@ export default function Interaction({ message }: Props) {
                 From-Process
               </td>
               <td>
-                <Link to={`#/process/${tags["From-Process"]}`}>
+                <Link to={`#/${tags["From-Process"]}`}>
                   {formatAddress(tags["From-Process"])}
                   <ShareIcon />
                 </Link>
@@ -269,7 +269,7 @@ export default function Interaction({ message }: Props) {
             <tr>
               <td>Process</td>
               <td>
-                <Link to={`#/process/${process}`}>
+                <Link to={`#/${process}`}>
                   {formatAddress(process)}
                   <ShareIcon />
                 </Link>
@@ -282,7 +282,7 @@ export default function Interaction({ message }: Props) {
                 Pushed-For
               </td>
               <td>
-                <Link to={`#/message/${tags["Pushed-For"]}`}>
+                <Link to={`#/${tags["Pushed-For"]}`}>
                   {formatAddress(tags["Pushed-For"])}
                   <ShareIcon />
                 </Link>
@@ -350,7 +350,7 @@ export default function Interaction({ message }: Props) {
           <tr key={i}>
             <td></td>
             <td>
-              <Link to={`#/message/${msg.id}`}>
+              <Link to={`#/${msg.id}`}>
                 {formatAddress(msg.id)}
               </Link>
             </td>
@@ -358,12 +358,12 @@ export default function Interaction({ message }: Props) {
               {msg.tags.find((t: Tag) => t.name === "Action")?.value || "-"}
             </td>
             <td>
-              <Link to={`#/process/${getTagValue("From-Process", msg.tags) || msg.owner.address}`}>
+              <Link to={`#/${getTagValue("From-Process", msg.tags) || msg.owner.address}`}>
                 {formatAddress(getTagValue("From-Process", msg.tags) || msg.owner.address)}
               </Link>
             </td>
             <td>
-              <Link to={`#/process/${msg.recipient}`}>
+              <Link to={`#/${msg.recipient}`}>
                 {formatAddress(msg.recipient)}
               </Link>
             </td>

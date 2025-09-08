@@ -14,7 +14,7 @@ export default function Nav() {
 
   useEffect(() => {
     if (!isAddress(searchVal)) return;
-    setLocation(`#/process/${searchVal}`);
+    setLocation(`#/${searchVal}`);
     setSearchVal("");
   }, [searchVal]);
 

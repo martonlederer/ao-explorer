@@ -965,7 +965,7 @@ export default function Process({ initTx }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/process/${balance.token}`}>
+                  <Link to={`#/${balance.token}`}>
                     {//@ts-expect-error
                       (cachedTokens[balance.token] !== "pending" && cachedTokens[balance.token]?.name) || formatAddress(balance.token)}
                   </Link>
@@ -1018,7 +1018,7 @@ export default function Process({ initTx }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/message/${transfer.id}`}>
+                  <Link to={`#/${transfer.id}`}>
                     {formatAddress(transfer.id)}
                   </Link>
                 </td>
@@ -1029,7 +1029,7 @@ export default function Process({ initTx }: Props) {
                   <EntityLink address={transfer.from} />
                 </td>
                 <td>
-                  <Link to={`#/process/${transfer.token}`}>
+                  <Link to={`#/${transfer.token}`}>
                     <span style={{ color: transfer.dir === "out" ? "#ff0000" : "#00db5f" }}>
                       {transfer.dir === "out" ? "-" : "+"}
                       {//@ts-expect-error
@@ -1076,7 +1076,7 @@ export default function Process({ initTx }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/message/${interaction.node.message.id}`}>
+                  <Link to={`#/${interaction.node.message.id}`}>
                     {formatAddress(interaction.node.message.id)}
                   </Link>
                 </td>
@@ -1130,7 +1130,7 @@ export default function Process({ initTx }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/process/${process.id}`}>
+                  <Link to={`#/${process.id}`}>
                     {formatAddress(process.id)}
                   </Link>
                 </td>
@@ -1176,7 +1176,7 @@ export default function Process({ initTx }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/message/${interaction.id}`}>
+                  <Link to={`#/${interaction.id}`}>
                     {formatAddress(interaction.id)}
                   </Link>
                 </td>
