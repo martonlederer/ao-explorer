@@ -108,38 +108,26 @@ const wellKnownTokens = {
   }
 };
 
-export default function Process({ id }: Props) {
-  const [initTx, setInitTx] = useState<TransactionNode | "loading">("loading");
+export default function Process({ initTx }: Props) {
+  const id = useMemo(() => initTx.id, [initTx]);
   const gateway = useGateway();
   const client = useApolloClient();
 
-  useEffect(() => {
-    (async () => {
-      setInitTx("loading");
-      const res = await client.query({
-        query: GetSpawnMessage,
-        variables: { id }
-      });
+  // useEffect(() => {
+  //   (async () => {
+  //     setInitTx("loading");
+  //     const res = await client.query({
+  //       query: GetSpawnMessage,
+  //       variables: { id }
+  //     });
 
-      setInitTx(res.data.transactions.edges[0]?.node as TransactionNode);
-    })();
-  }, [id, gateway, client]);
+  //     setInitTx(res.data.transactions.edges[0]?.node as TransactionNode);
+  //   })();
+  // }, [id, gateway, client]);
 
-  const tags = useMemo(() => {
-    const tagRecord: { [name: string]: string } = {};
-
-    if (!initTx || initTx == "loading")
-      return tagRecord;
-
-    for (const tag of initTx.tags) {
-      tagRecord[tag.name] = tag.value
-    }
-
-    return tagRecord;
-  }, [initTx]);
+  const tags = useMemo(() => Object.fromEntries(initTx.tags.map(t => [t.name, t.value])), [initTx]);
 
   const owner = useMemo(() => {
-    if (initTx === "loading" || !initTx) return undefined;
     const ownerAddr = tags["From-Process"] || initTx.owner.address;
 
     return {
@@ -152,8 +140,6 @@ export default function Process({ id }: Props) {
 
   useEffect(() => {
     (async () => {
-      if (!initTx || initTx == "loading") return;
-
       const res = await client.query({
         query: GetSchedulerLocation,
         variables: { id: tags.Scheduler }
@@ -740,16 +726,6 @@ export default function Process({ id }: Props) {
     });
   }
 
-  if (!initTx || initTx == "loading") {
-    return (
-      <Wrapper>
-        <NotFound>
-          {(!initTx && "Could not find process") || "Loading..."}
-        </NotFound>
-      </Wrapper>
-    )
-  }
-
   return (
     <Wrapper>
       <ProcessTitle>
@@ -1276,7 +1252,7 @@ const QueryInput = styled.textarea`
 `;
 
 interface Props {
-  id: string;
+  initTx: TransactionNode;
 }
 
 interface OutgoingInteraction {

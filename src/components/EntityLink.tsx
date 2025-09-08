@@ -1,5 +1,5 @@
 import { styled } from "@linaria/react";
-import { HTMLProps, useEffect, useMemo, useState } from "react";
+import { HTMLProps, useContext, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@apollo/client";
 import { formatAddress } from "../utils/format";
@@ -12,6 +12,7 @@ import { useGateway } from "../utils/hooks";
 import { TokenLogo } from "./Page";
 import { GetMessageType } from "../queries/messages";
 import { useInView } from "react-intersection-observer";
+import { CurrentTransactionContext } from "./CurrentTransactionProvider";
 
 const ario = ARIO.mainnet();
 
@@ -85,9 +86,10 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
   }, [address, defaultTransaction, inView]);
 
   const gateway = useGateway();
+  const [, setCurrentTx] = useContext(CurrentTransactionContext);
 
   return (
-    <Wrapper to={"#/" + address} state={{ transaction }} accent={accent} ref={ref} {...props}>
+    <Wrapper to={"#/" + address} accent={accent} ref={ref} onClick={() => setCurrentTx(transaction)} {...props}>
       {info.Name || arnsName || tags.Name || formatAddress(address)}
       {(info.Logo || arnsName) && (
         <TokenLogo src={info.Logo ? `${gateway}/${info.Logo}` : "/arns.svg"} draggable={false} />

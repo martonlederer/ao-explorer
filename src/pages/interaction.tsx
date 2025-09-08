@@ -31,71 +31,55 @@ export interface Message {
   Data: string;
 }
 
-export default function Interaction({ interaction }: Props) {
-  const [message, setMessage] = useState<TransactionNode | "loading" | undefined>("loading");
+export default function Interaction({ message }: Props) {
   const gateway = useGateway();
   const client = useApolloClient();
 
-  const process = useMemo<string | undefined>(() => {
-    if (message === "loading" || !message) return undefined;
-    return message.recipient;
-  }, [message]);
+  const process = useMemo<string | undefined>(() => message.recipient, [message]);
 
   const wait = (time: number) => new Promise((resolve) => setTimeout(resolve, time));
 
-  useEffect(() => {
-    let cancel = false;
+  // useEffect(() => {
+  //   let cancel = false;
 
-    (async () => {
-      let tries = 0;
+  //   (async () => {
+  //     let tries = 0;
 
-      while (tries < 5) {
-        try {
-          // get output for token qty
-          const res = await client.query({
-            query: GetMessage,
-            variables: { id: interaction }
-          });
+  //     while (tries < 5) {
+  //       try {
+  //         // get output for token qty
+  //         const res = await client.query({
+  //           query: GetMessage,
+  //           variables: { id: interaction }
+  //         });
 
-          if (cancel) return;
+  //         if (cancel) return;
 
-          // breaks
-          if (res.data.transactions.edges[0]) {
-            return setMessage(res.data.transactions.edges[0].node);
-          }
+  //         // breaks
+  //         if (res.data.transactions.edges[0]) {
+  //           return setMessage(res.data.transactions.edges[0].node);
+  //         }
 
-          // wait a bit to see if the interaction loads
-          await wait(4000);
-        } catch {}
-        tries++;
-      }
+  //         // wait a bit to see if the interaction loads
+  //         await wait(4000);
+  //       } catch {}
+  //       tries++;
+  //     }
 
-      setMessage(undefined);
-    })();
+  //     setMessage(undefined);
+  //   })();
 
-    return () => {
-      cancel = true;
-    };
-  }, [process, interaction, gateway, client]);
+  //   return () => {
+  //     cancel = true;
+  //   };
+  // }, [process, interaction, gateway, client]);
 
-  const tags = useMemo(() => {
-    const tagRecord: { [name: string]: string } = {};
-
-    if (!message || message == "loading")
-      return tagRecord;
-
-    for (const tag of message.tags) {
-      tagRecord[tag.name] = tag.value
-    }
-
-    return tagRecord;
-  }, [message]);
+  const tags = useMemo(() => Object.fromEntries(message.tags.map(t => [t.name, t.value])), [message]);
 
   const [data, setData] = useState("");
 
   useEffect(() => {
     (async () => {
-      if (!message || message === "loading") return;
       setData("");
 
       const data = await (
@@ -110,7 +94,7 @@ export default function Interaction({ interaction }: Props) {
 
   useEffect(() => {
     (async () => {
-      if (!process || !message || message === "loading") return;
+      if (!process) return;
       setRes(undefined);
 
       const resultData = await result({
@@ -131,7 +115,6 @@ export default function Interaction({ interaction }: Props) {
   const messageGraph = useMemo(
     () => ({
       nodes: messageGraphRaw.nodes.map((n) => {
-        if (message === "loading" || !message) return n;
         if (n.id === message.id) {
           return {
             ...n,
@@ -149,7 +132,7 @@ export default function Interaction({ interaction }: Props) {
 
   const linkedMessages = useMemo(
     () => {
-      if (!graphData || !message || message === "loading") return [];
+      if (!graphData) return [];
       return [graphData.originalMessage, ...graphData.linkedMessages].filter(
         (node) => node.id !== message.id
       );
@@ -158,7 +141,6 @@ export default function Interaction({ interaction }: Props) {
   );
   const resultingMessages = useMemo(
     () => {
-      if (!message || message === "loading") return [];
       const linksFrom = messageGraph.links.filter((link) => link.source === message.id);
       return linkedMessages.filter((msg) => linksFrom.find((link) => link.target === msg.id));
     },
@@ -167,7 +149,7 @@ export default function Interaction({ interaction }: Props) {
 
   useEffect(() => {
     (async () => {
-      if (!message || message === "loading" || !res) return;
+      if (!res) return;
       setLoadingMessages(true);
       try {
         const res = await getLinkedMessages(message, client);
@@ -227,16 +209,6 @@ export default function Interaction({ interaction }: Props) {
 
   const [, setLocation] = useLocation();
 
-  if (!message || message == "loading") {
-    return (
-      <Wrapper>
-        <NotFound>
-          {(!message && "Could not find message") || "Loading..."}
-        </NotFound>
-      </Wrapper>
-    )
-  }
-
   return (
     <Wrapper>
       <ProcessTitle>
@@ -249,9 +221,9 @@ export default function Interaction({ interaction }: Props) {
         )}
       </ProcessTitle>
       <ProcessID>
-        {interaction}
+        {message.id}
         <Copy
-          onClick={() => navigator.clipboard.writeText(interaction)}
+          onClick={() => navigator.clipboard.writeText(message.id)}
         />
       </ProcessID>
       <Tables>
@@ -482,5 +454,5 @@ const Space = styled.div`
 `;
 
 interface Props {
-  interaction: string;
+  message: TransactionNode;
 }

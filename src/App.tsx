@@ -17,6 +17,8 @@ import { MarkedProvider } from "./components/MarkedProvider";
 import { ApolloClient, ApolloProvider, NormalizedCacheObject } from "@apollo/client";
 import { setupApollo } from "./utils/gql_client";
 import { useEffect, useState } from "react";
+import { CurrentTransactionProvider } from "./components/CurrentTransactionProvider";
+import Entity from "./pages/entity";
 
 const convertPathToRegexp = (path: string) => {
   let keys: Key[] = [];
@@ -69,28 +71,33 @@ function App() {
       }}
     >
       <ApolloProvider client={apolloClient}>
-        <MarkedProvider>
-          <>
-            <BgBlur />
-            <Router hook={useHashLocation} matcher={customMatcher}>
-              <Nav />
-              <Main>
-                <Switch>
-                  <Route path="/" component={Home} />
-                  <Route path="/message/:message">
-                    {(props) => <Interaction interaction={props.message} />}
-                  </Route>
-                  <Route path="/process/:id">
-                    {(props) => <Process id={props.id} />}
-                  </Route>
-                  <Route path="/process/:id/:message">
-                    {(props) => <Redirect to={`/message/${props.message}`} />}
-                  </Route>
-                </Switch>
-              </Main>
-            </Router>
-          </>
-        </MarkedProvider>
+        <CurrentTransactionProvider>
+          <MarkedProvider>
+            <>
+              <BgBlur />
+              <Router hook={useHashLocation} matcher={customMatcher}>
+                <Nav />
+                <Main>
+                  <Switch>
+                    <Route path="/" component={Home} />
+                    <Route path="/:id">
+                      {(props) => <Entity id={props.id} />}
+                    </Route>
+                    <Route path="/message/:message">
+                      {(props) => <Redirect to={`/${props.message}`} />}
+                    </Route>
+                    <Route path="/process/:id">
+                      {(props) => <Redirect to={`/${props.id}`} />}
+                    </Route>
+                    <Route path="/process/:id/:message">
+                      {(props) => <Redirect to={`/${props.message}`} />}
+                    </Route>
+                  </Switch>
+                </Main>
+              </Router>
+            </>
+          </MarkedProvider>
+        </CurrentTransactionProvider>
       </ApolloProvider>
     </ArweaveWalletKit>
   );
