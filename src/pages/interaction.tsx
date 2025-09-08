@@ -21,6 +21,7 @@ import dayjs from "dayjs";
 import { Graph, GraphNode, GraphLink, GraphConfiguration } from "react-d3-graph";
 import { useLocation } from "wouter";
 import { useResizeDetector } from "react-resize-detector";
+import EntityLink from "../components/EntityLink";
 
 dayjs.extend(relativeTime);
 
@@ -232,25 +233,9 @@ export default function Interaction({ message }: Props) {
           <tr>
             <td>Owner</td>
             <td>
-              <a href={`https://viewblock.io/arweave/address/${message.owner.address}`} target="_blank" rel="noopener noreferer">
-                {formatAddress(message.owner.address)}
-                <ShareIcon />
-              </a>
+              <EntityLink address={tags["From-Process"] || message.owner.address} />
             </td>
           </tr>
-          {tags["From-Process"] && (
-            <tr>
-              <td>
-                From-Process
-              </td>
-              <td>
-                <Link to={`#/${tags["From-Process"]}`}>
-                  {formatAddress(tags["From-Process"])}
-                  <ShareIcon />
-                </Link>
-              </td>
-            </tr>
-          )}
           <tr>
             <td>Variant</td>
             <td>
@@ -269,10 +254,7 @@ export default function Interaction({ message }: Props) {
             <tr>
               <td>Process</td>
               <td>
-                <Link to={`#/${process}`}>
-                  {formatAddress(process)}
-                  <ShareIcon />
-                </Link>
+                <EntityLink address={process} />
               </td>
             </tr>
           )}
@@ -282,10 +264,7 @@ export default function Interaction({ message }: Props) {
                 Pushed-For
               </td>
               <td>
-                <Link to={`#/${tags["Pushed-For"]}`}>
-                  {formatAddress(tags["Pushed-For"])}
-                  <ShareIcon />
-                </Link>
+                <EntityLink address={tags["Pushed-For"]} />
               </td>
             </tr>
           )}
@@ -358,14 +337,10 @@ export default function Interaction({ message }: Props) {
               {msg.tags.find((t: Tag) => t.name === "Action")?.value || "-"}
             </td>
             <td>
-              <Link to={`#/${getTagValue("From-Process", msg.tags) || msg.owner.address}`}>
-                {formatAddress(getTagValue("From-Process", msg.tags) || msg.owner.address)}
-              </Link>
+              <EntityLink address={getTagValue("From-Process", msg.tags) || msg.owner.address} />
             </td>
             <td>
-              <Link to={`#/${msg.recipient}`}>
-                {formatAddress(msg.recipient)}
-              </Link>
+              <EntityLink address={msg.recipient} />
             </td>
             <td>
               {msg.block?.height || "Pending..."}
