@@ -4,6 +4,7 @@ import { useQuery } from "@apollo/client";
 import { GetTransaction } from "../queries/base";
 import Process from "./process";
 import Interaction from "./interaction";
+import { NotFound, Wrapper } from "../components/Page";
 
 export default function Entity({ id }: Props) {
   const [transaction, setTransaction] = useContext(CurrentTransactionContext);
@@ -23,10 +24,25 @@ export default function Entity({ id }: Props) {
     [transaction]
   );
 
-  if (!type || !transaction) return <>Loading...</>;
-  else if (type === "Process") return <Process initTx={transaction} />;
+  if (!type || !transaction) {
+    return (
+      <Wrapper>
+        <NotFound>
+          Loading...
+        </NotFound>
+      </Wrapper>
+    );
+  } else if (type === "Process") return <Process initTx={transaction} />;
   else if (type === "Message") return <Interaction message={transaction} />;
-  else return <>Not yet supported...</>;
+  else {
+    return (
+      <Wrapper>
+        <NotFound>
+          Not yet supported...
+        </NotFound>
+      </Wrapper>
+    );
+  }
 }
 
 interface Props {

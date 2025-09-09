@@ -1,14 +1,13 @@
 import { LinkedMessageData, getLinkedMessages, useMessageGraph, useProcessGraph } from "../utils/message_graph";
-import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Wrapper } from "../components/Page";
+import { Copy, ProcessID, ProcessName, ProcessTitle, Tables, Wrapper } from "../components/Page";
 import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
-import { GetMessage, TransactionNode } from "../queries/messages";
+import { TransactionNode } from "../queries/messages";
 import { formatAddress, formatJSONOrString, getTagValue } from "../utils/format";
 import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useApolloClient } from "@apollo/client";
-import { ShareIcon } from "@iconicicons/react";
 import { Editor } from "@monaco-editor/react";
 import { result } from "@permaweb/aoconnect";
 import { useGateway } from "../utils/hooks";
@@ -37,43 +36,6 @@ export default function Interaction({ message }: Props) {
   const client = useApolloClient();
 
   const process = useMemo<string | undefined>(() => message.recipient, [message]);
-
-  const wait = (time: number) => new Promise((resolve) => setTimeout(resolve, time));
-
-  // useEffect(() => {
-  //   let cancel = false;
-
-  //   (async () => {
-  //     let tries = 0;
-
-  //     while (tries < 5) {
-  //       try {
-  //         // get output for token qty
-  //         const res = await client.query({
-  //           query: GetMessage,
-  //           variables: { id: interaction }
-  //         });
-
-  //         if (cancel) return;
-
-  //         // breaks
-  //         if (res.data.transactions.edges[0]) {
-  //           return setMessage(res.data.transactions.edges[0].node);
-  //         }
-
-  //         // wait a bit to see if the interaction loads
-  //         await wait(4000);
-  //       } catch {}
-  //       tries++;
-  //     }
-
-  //     setMessage(undefined);
-  //   })();
-
-  //   return () => {
-  //     cancel = true;
-  //   };
-  // }, [process, interaction, gateway, client]);
 
   const tags = useMemo(() => Object.fromEntries(message.tags.map(t => [t.name, t.value])), [message]);
 

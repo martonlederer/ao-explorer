@@ -65,7 +65,7 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
     (async () => {
       setInfo({});
 
-      if (defaultTransaction && !!defaultTransaction.tags.find(t => t.name === "Type" && t.value !== "Process") || !inView) {
+      if (defaultTransaction && defaultTransaction.tags.find(t => t.name === "Type")?.value !== "Process" || !inView) {
         return;
       }
 
@@ -75,13 +75,12 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
       });
 
       const infoRes: Message | undefined = res.Messages.find(
-        (msg: Message) => !!msg.Tags.find((t) => t.name === "Name")
+        (msg: Message) => typeof msg.Tags.find((t) => t.name === "Name")?.value !== "undefined"
       );
 
       if (!infoRes) return;
 
-      // @ts-expect-error
-      setInfo(infoRes.Tags.map(t => [t.name, t.value]))
+      setInfo(Object.fromEntries(infoRes.Tags.map(t => [t.name, t.value])))
     })();
   }, [address, defaultTransaction, inView]);
 
@@ -90,10 +89,11 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
 
   return (
     <Wrapper to={"#/" + address} accent={accent} ref={ref} onClick={() => setCurrentTx(transaction)} {...props}>
-      {info.Name || arnsName || tags.Name || formatAddress(address)}
-      {(info.Logo || arnsName) && (
-        <TokenLogo src={info.Logo ? `${gateway}/${info.Logo}` : "/arns.svg"} draggable={false} />
+      {info.Logo && (
+        <TokenLogo src={`${gateway}/${info.Logo}`} draggable={false} />
       )}
+      {info.Name || arnsName || tags.Name || formatAddress(address)}
+      {arnsName && !info.Logo && <TokenLogo src="/arns.svg" draggable={false} />}
       <Tooltip>
         {address}
       </Tooltip>
