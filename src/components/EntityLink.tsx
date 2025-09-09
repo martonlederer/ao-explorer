@@ -3,14 +3,13 @@ import { HTMLProps, useContext, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@apollo/client";
 import { formatAddress } from "../utils/format";
-import { GetTransaction } from "../queries/base";
+import { FullTransactionNode, GetTransaction } from "../queries/base";
 // @ts-expect-error
 import { ARIO } from "@ar.io/sdk/web";
 import { dryrun } from "@permaweb/aoconnect";
 import { Message } from "../pages/interaction";
 import { useGateway } from "../utils/hooks";
 import { TokenLogo } from "./Page";
-import { GetMessageType } from "../queries/messages";
 import { useInView } from "react-intersection-observer";
 import { CurrentTransactionContext } from "./CurrentTransactionProvider";
 
@@ -103,7 +102,7 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
 
 interface Props {
   address: string;
-  transaction?: GetMessageType["transactions"]["edges"][0]["node"];
+  transaction?: FullTransactionNode;
   accent?: boolean;
 }
 

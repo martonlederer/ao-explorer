@@ -1,7 +1,32 @@
 import { TypedDocumentNode, gql } from "@apollo/client";
-import { GetMessageType } from "./messages";
+import { TransactionNode } from "./messages";
 
-export const GetTransaction: TypedDocumentNode<GetMessageType, { id: string }> = gql`
+export interface GetTransactionType {
+  transactions: {
+    edges: {
+      node: FullTransactionNode;
+    }[];
+  };
+}
+
+export interface FullTransactionNode extends TransactionNode {
+  signature: string;
+  quantity: {
+    ar: string;
+  };
+  fee: {
+    ar: string;
+  };
+  data: {
+    size: string;
+    type?: string;
+  };
+  bundledIn: {
+    id: string;
+  } | null;
+}
+
+export const GetTransaction: TypedDocumentNode<GetTransactionType, { id: string }> = gql`
   query GetTransaction ($id: ID!) {
     transactions(
       ids: [$id],
@@ -21,6 +46,20 @@ export const GetTransaction: TypedDocumentNode<GetMessageType, { id: string }> =
           block {
             height
             timestamp
+          }
+          signature
+          quantity {
+            ar
+          }
+          fee {
+            ar
+          }
+          data {
+            size
+            type
+          }
+          bundledIn {
+            id
           }
         }
       }

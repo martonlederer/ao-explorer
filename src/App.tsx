@@ -5,11 +5,9 @@ import { ArweaveWalletKit } from "@arweave-wallet-kit/react";
 import { pathToRegexp, Key } from "path-to-regexp";
 import { Router, Route, Switch, Redirect } from "wouter";
 import makeCachedMatcher from "wouter/matcher";
-import Interaction from "./pages/interaction";
 import { useGateway } from "./utils/hooks";
 import useHashLocation from "./utils/hash";
 import { styled } from "@linaria/react";
-import Process from "./pages/process";
 import { css } from "@linaria/core";
 import Nav from "./components/Nav";
 import Home from "./pages";
@@ -80,7 +78,7 @@ function App() {
                 <Main>
                   <Switch>
                     <Route path="/" component={Home} />
-                    <Route path="/:id">
+                    <Route path="/:id([a-zA-Z0-9_-]{43})">
                       {(props) => <Entity id={props.id} />}
                     </Route>
                     <Route path="/message/:message">

@@ -1,12 +1,12 @@
 import { Dispatch, PropsWithChildren, SetStateAction, createContext, useState } from "react";
-import { TransactionNode } from "../queries/messages";
+import { FullTransactionNode } from "../queries/base";
 
 export const CurrentTransactionContext = createContext<
-  [TransactionNode | undefined, Dispatch<SetStateAction<TransactionNode | undefined>>]
+  [FullTransactionNode | undefined, Dispatch<SetStateAction<FullTransactionNode | undefined>>]
 >([undefined, () => {}]);
 
 export function CurrentTransactionProvider({ children }: PropsWithChildren<{}>) {
-  const [state, setState] = useState<TransactionNode | undefined>();
+  const [state, setState] = useState<FullTransactionNode | undefined>();
 
   return (
     <CurrentTransactionContext.Provider value={[state, setState]}>

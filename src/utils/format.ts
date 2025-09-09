@@ -20,3 +20,16 @@ export function formatJSONOrString(maybeJson: string = "{}") {
 
   return maybeJson;
 }
+
+export function formatQuantity(val: string | number) {
+  if (typeof val === "string") {
+    val = parseFloat(val);
+  }
+
+  let maximumFractionDigits = 2;
+  if (val < 999) {
+    maximumFractionDigits = val < 1 ? 12 : 4;
+  }
+
+  return val.toLocaleString(undefined, { maximumFractionDigits });
+}
