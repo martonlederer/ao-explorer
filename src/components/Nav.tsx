@@ -32,7 +32,7 @@ export default function Nav() {
             if (e.code !== "Enter") return;
             setLocation(`#/${searchVal}`);
           }}
-          placeholder="Search for a anything..."
+          placeholder="Search for anything..."
         />
       </SearchWrapper>
       {(connected && (

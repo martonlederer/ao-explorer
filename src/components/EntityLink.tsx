@@ -45,18 +45,13 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
       try {
         setArnsName(undefined);
 
-        if (!inView) return;
-        if (defaultTransaction) {
-          const type = defaultTransaction.tags.find(t => t.name === "Type")?.value;
-
-          if (type === "Message" || type === "Module" || type === "Assignment") return;
-        }
+        if (!inView || defaultTransaction || !!tags.Type) return;
 
         const res = await ario.getPrimaryName({ address });
         setArnsName(res?.name);
       } catch {}
     })();
-  }, [address, defaultTransaction, inView]);
+  }, [address, defaultTransaction, inView, tags]);
 
   const [info, setInfo] = useState<Record<string, string>>({});
 

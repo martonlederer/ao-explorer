@@ -8,9 +8,28 @@ import { ARIO } from "@ar.io/sdk/web";
 import { dryrun } from "@permaweb/aoconnect";
 import { Tag } from "../queries/processes";
 import { styled } from "@linaria/react";
-import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper } from "./process";
+import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, formatTimestamp } from "./process";
+import { useApolloClient } from "@apollo/client";
+import { FullTransactionNode, GetOutgoingTransactions } from "../queries/base";
+import InfiniteScroll from "react-infinite-scroll-component";
+import { LoadingStatus } from ".";
+import { Link } from "wouter";
+import { formatAddress } from "../utils/format";
+import EntityLink from "../components/EntityLink";
 
 const ario = ARIO.mainnet();
+
+interface TransactionListItem {
+  type: "Message" | "Process" | "Module" | "Assignment" | "Bundle" | undefined;
+  id: string;
+  owner: string;
+  target: string;
+  action: string;
+  block: number;
+  time?: number;
+  original: FullTransactionNode;
+  cursor: string;
+}
 
 export default function Wallet({ address }: Props) {
   const gateway = useGateway();
@@ -67,6 +86,52 @@ export default function Wallet({ address }: Props) {
   }, [address]);
 
   const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "transfers" | "balances">("incoming");
+
+  const client = useApolloClient();
+
+  const [hasMoreOutgoing, setHasMoreOutgoing] = useState(true);
+  const [outgoing, setOutgoing] = useState<TransactionListItem[]>([]);
+
+  async function fetchOutgoing() {
+    const res = await client.query({
+      query: GetOutgoingTransactions,
+      variables: {
+        owner: address,
+        cursor: outgoing[outgoing.length - 1]?.cursor
+      }
+    });
+
+    setHasMoreOutgoing(res.data.transactions.pageInfo.hasNextPage);
+    setOutgoing((val) => {
+      // manually filter out duplicate transactions
+      // for some reason, the ar.io nodes return the
+      // same transaction multiple times for certain
+      // queries
+      for (const tx of res.data.transactions.edges) {
+        if (val.find((t) => t.id === tx.node.id)) continue;
+        val.push({
+          // @ts-expect-error
+          type: tx.node.tags.find((tag) => tag.name === "Type")?.value || "Transaction",
+          id: tx.node.id,
+          owner: tx.node.owner.address,
+          target: tx.node.recipient,
+          action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
+          block: tx.node.block?.height || 0,
+          time: tx.node.block?.timestamp,
+          original: tx.node,
+          cursor: tx.cursor
+        });
+      }
+
+      return val;
+    });
+  }
+
+  useEffect(() => {
+    setOutgoing([]);
+    setHasMoreOutgoing(true);
+    fetchOutgoing();
+  }, [address, gateway]);
 
   return (
     <Wrapper>
@@ -145,10 +210,66 @@ export default function Wallet({ address }: Props) {
           </InteractionsMenuItem>
         </InteractionsWrapper>
       </InteractionsMenu>
+      {interactionsMode === "outgoing" && (
+        <InfiniteScroll
+          dataLength={outgoing.length}
+          next={fetchOutgoing}
+          hasMore={hasMoreOutgoing}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
+          <Table>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Action</th>
+              <th>To</th>
+              <th>Block</th>
+              <th>Time</th>
+            </tr>
+            {outgoing.map((tx, i) => (
+              <tr key={i}>
+                <td>
+                  <Type>
+                    {tx.type}
+                  </Type>
+                </td>
+                <td>
+                  <EntityLink address={tx.id} transaction={tx.original} />
+                </td>
+                <td>
+                  {tx.action}
+                </td>
+                <td>
+                  {(tx.target && <EntityLink address={tx.target} />) || "-"}
+                </td>
+                <td>
+                  {tx.block}
+                </td>
+                <td>
+                  {formatTimestamp(tx.time && tx.time * 1000)}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </InfiniteScroll>
+      )}
       <Space />
     </Wrapper>
   );
 }
+
+const Type = styled.span`
+  background-color: rgba(4, 255, 0, .23);
+  color: #fff;
+  text-transform: uppercase;
+  padding: .16rem .25rem;
+  font-size: .8rem;
+`;
 
 const Balance = styled.div`
   display: flex;

@@ -1,6 +1,6 @@
 import { Tag } from "../queries/processes";
 
-export function formatAddress(address: string, count = 11) {
+export function formatAddress(address: string, count = 10) {
   return (
     address.substring(0, count) +
     "..." +
