@@ -28,7 +28,11 @@ export default function Nav() {
         <SearchInput
           onChange={(e) => setSearchVal(e.target.value)}
           value={searchVal}
-          placeholder="Search for a process..."
+          onKeyDown={(e) => {
+            if (e.code !== "Enter") return;
+            setLocation(`#/${searchVal}`);
+          }}
+          placeholder="Search for a anything..."
         />
       </SearchWrapper>
       {(connected && (

@@ -1,16 +1,26 @@
 import { ClipboardIcon } from "@iconicicons/react";
 import { styled } from "@linaria/react"
+import { useLocation } from "wouter";
+import { isAddress } from "../utils/format";
 
 export default function Tag({ name, value }: Props) {
+  const [, setLocation] = useLocation();
+
   return (
     <Wrapper>
       <Field>
         {name}
         <Copy onClick={() => navigator.clipboard.writeText(name)} />
       </Field>
-      <Field>
+      <Field onClick={() => {
+        if (!isAddress(value)) return;
+        setLocation(`#/${value}`);
+      }} link={isAddress(value)}>
         {value}
-        <Copy onClick={() => navigator.clipboard.writeText(value)} />
+        <Copy onClick={(e) => {
+          navigator.clipboard.writeText(value);
+          e.stopPropagation();
+        }} />
       </Field>
     </Wrapper>
   );
@@ -32,12 +42,13 @@ export const Copy = styled(ClipboardIcon)`
   }
 `;
 
-const Field = styled.div`
+const Field = styled.div<{ link?: boolean }>`
   display: flex;
   align-items: center;
   gap: .23rem;
   padding: .16rem .25rem;
   font-size: .87rem;
+  cursor: ${props => props.link ? "pointer" : "unset"};
 
   ${Copy} {
     display: none;
