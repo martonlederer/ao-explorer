@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, ProcessID, ProcessTitle, Tables, Wrapper } from "../components/Page";
+import { Copy, ProcessID, ProcessTitle, Space, Tables, Wrapper } from "../components/Page";
 import Table from "../components/Table";
 import EntityLink from "../components/EntityLink";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -180,10 +180,6 @@ export default function Transaction({ transaction }: Props) {
     </Wrapper>
   );
 }
-
-const Space = styled.div`
-  height: 3rem;
-`;
 
 const DataTitle = styled.p`
   color: #fff;

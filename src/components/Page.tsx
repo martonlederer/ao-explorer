@@ -87,3 +87,7 @@ export const Tables = styled.div`
     white-space: nowrap;
   }
 `;
+
+export const Space = styled.div<{ y?: number }>`
+  height: ${props => props.y?.toString() || "3"}rem;
+`;

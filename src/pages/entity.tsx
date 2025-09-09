@@ -1,11 +1,11 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo } from "react";
 import { CurrentTransactionContext } from "../components/CurrentTransactionProvider";
 import { useQuery } from "@apollo/client";
 import { GetTransaction } from "../queries/base";
 import Process from "./process";
 import Interaction from "./interaction";
-import { NotFound, Wrapper } from "../components/Page";
 import Transaction from "./transaction";
+import Wallet from "./wallet";
 
 export default function Entity({ id }: Props) {
   const [transaction, setTransaction] = useContext(CurrentTransactionContext);
@@ -15,14 +15,9 @@ export default function Entity({ id }: Props) {
     skip: !needsFetching
   });
 
-  const [notFound, setNotFound] = useState(false);
-
-  useEffect(() => setNotFound(false), [id]);
-
   useEffect(() => {
     if (!needsFetching || loading || !queriedTx) return;
     setTransaction(queriedTx.transactions.edges[0]?.node);
-    setNotFound(typeof queriedTx.transactions.edges[0]?.node === "undefined");
   }, [needsFetching, queriedTx, loading]);
 
   const type = useMemo(
@@ -30,15 +25,8 @@ export default function Entity({ id }: Props) {
     [transaction]
   );
 
-  if (!transaction) {
-    return (
-      <Wrapper>
-        <NotFound>
-          {notFound ? "Transaction not found." : "Loading..."}
-        </NotFound>
-      </Wrapper>
-    );
-  } else if (type === "Process") return <Process initTx={transaction} />;
+  if (!transaction) return <Wallet address={id} />;
+  else if (type === "Process") return <Process initTx={transaction} />;
   else if (type === "Message") return <Interaction message={transaction} />;
   else return <Transaction transaction={transaction} />;
 }

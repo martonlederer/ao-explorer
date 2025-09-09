@@ -1,5 +1,5 @@
 import { LinkedMessageData, getLinkedMessages, useMessageGraph, useProcessGraph } from "../utils/message_graph";
-import { Copy, ProcessID, ProcessName, ProcessTitle, Tables, Wrapper } from "../components/Page";
+import { Copy, ProcessID, ProcessName, ProcessTitle, Space, Tables, Wrapper } from "../components/Page";
 import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
 import { TransactionNode } from "../queries/messages";
 import { formatAddress, formatJSONOrString, getTagValue } from "../utils/format";
@@ -384,10 +384,6 @@ const DataTitle = styled.p`
   color: #fff;
   font-family: "Inter", sans-serif;
   margin: 0;
-`;
-
-const Space = styled.div`
-  height: 3rem;
 `;
 
 interface Props {
