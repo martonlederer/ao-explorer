@@ -191,7 +191,7 @@ export default function Block({ height }: Props) {
                 </TransactionType>
               </td>
               <td>
-                <EntityLink address={tx.id} transaction={tx.original} />
+                <EntityLink address={tx.id} transaction={tx.original} idonly />
               </td>
               <td>
                 {tx.action}

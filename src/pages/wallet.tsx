@@ -446,7 +446,7 @@ export default function Wallet({ address }: Props) {
                   </TransactionType>
                 </td>
                 <td>
-                  <EntityLink address={tx.id} transaction={tx.original} />
+                  <EntityLink address={tx.id} transaction={tx.original} idonly />
                 </td>
                 <td>
                   {tx.action}
@@ -494,7 +494,7 @@ export default function Wallet({ address }: Props) {
                   </TransactionType>
                 </td>
                 <td>
-                  <EntityLink address={tx.id} transaction={tx.original} />
+                  <EntityLink address={tx.id} transaction={tx.original} idonly />
                 </td>
                 <td>
                   {tx.action}
@@ -589,7 +589,7 @@ export default function Wallet({ address }: Props) {
                   <Link to={`#/${transfer.id}`}>
                     {formatAddress(transfer.id)}
                   </Link>
-                  {/*{<EntityLink address={transfer.id} transaction={transfer.original} />}*/}
+                  {/*{<EntityLink address={transfer.id} transaction={transfer.original} idonly />}*/}
                 </td>
                 <td>
                   <EntityLink address={transfer.from} />

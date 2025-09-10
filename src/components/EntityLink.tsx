@@ -15,7 +15,7 @@ import { CurrentTransactionContext } from "./CurrentTransactionProvider";
 
 const ario = ARIO.mainnet();
 
-export default function EntityLink({ address, transaction: defaultTransaction, accent, ...props }: HTMLProps<HTMLAnchorElement> & Props) {
+export default function EntityLink({ address, transaction: defaultTransaction, accent, idonly, ...props }: HTMLProps<HTMLAnchorElement> & Props) {
   const { ref, inView } = useInView({
     triggerOnce: true,
     rootMargin: "200px 0px"
@@ -45,13 +45,13 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
       try {
         setArnsName(undefined);
 
-        if (!inView || defaultTransaction || !!tags.Type) return;
+        if (!inView || defaultTransaction || !!tags.Type || idonly) return;
 
         const res = await ario.getPrimaryName({ address });
         setArnsName(res?.name);
       } catch {}
     })();
-  }, [address, defaultTransaction, inView, tags]);
+  }, [address, defaultTransaction, inView, tags, idonly]);
 
   const [info, setInfo] = useState<Record<string, string>>({});
 
@@ -59,7 +59,7 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
     (async () => {
       setInfo({});
 
-      if (defaultTransaction && defaultTransaction.tags.find(t => t.name === "Type")?.value !== "Process" || !inView) {
+      if (idonly || defaultTransaction && defaultTransaction.tags.find(t => t.name === "Type")?.value !== "Process" || !inView) {
         return;
       }
 
@@ -76,7 +76,7 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
 
       setInfo(Object.fromEntries(infoRes.Tags.map(t => [t.name, t.value])))
     })();
-  }, [address, defaultTransaction, inView]);
+  }, [address, defaultTransaction, inView, idonly]);
 
   const gateway = useGateway();
   const [, setCurrentTx] = useContext(CurrentTransactionContext);
@@ -86,7 +86,7 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
       {info.Logo && (
         <TokenLogo src={`${gateway}/${info.Logo}`} draggable={false} />
       )}
-      {info.Ticker || info.Name || arnsName || tags.Ticker || tags.Name || formatAddress(address)}
+      {(idonly && formatAddress(address)) || info.Ticker || info.Name || arnsName || tags.Ticker || tags.Name || formatAddress(address)}
       {arnsName && !info.Logo && <TokenLogo src="/arns.svg" draggable={false} />}
       <Tooltip>
         {address}
@@ -99,6 +99,7 @@ interface Props {
   address: string;
   transaction?: FullTransactionNode;
   accent?: boolean;
+  idonly?: boolean;
 }
 
 const Tooltip = styled.span`
