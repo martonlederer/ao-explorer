@@ -1,7 +1,7 @@
 import { Quantity } from "ao-tokens-lite";
 import { Tag } from "../queries/processes";
 
-export function formatAddress(address: string, count = 10) {
+export function formatAddress(address: string, count = 8) {
   return (
     address.substring(0, count) +
     "..." +

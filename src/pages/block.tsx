@@ -178,7 +178,7 @@ export default function Block({ height }: Props) {
             <th>ID</th>
             <th>Action</th>
             <th>From</th>
-            <th>Block</th>
+            <th>To</th>
             <th>Time</th>
           </tr>
           {transactions.map((tx, i) => (
@@ -198,7 +198,7 @@ export default function Block({ height }: Props) {
                 <EntityLink address={tx.owner} />
               </td>
               <td>
-                {tx.block}
+                <EntityLink address={tx.target} />
               </td>
               <td>
                 {formatTimestamp(tx.time && tx.time * 1000)}
