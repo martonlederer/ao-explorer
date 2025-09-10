@@ -18,6 +18,7 @@ interface GetAllProcessesType {
         owner: {
           address: string;
         };
+        block: Block;
       };
       cursor: string;
     }[];
@@ -77,6 +78,10 @@ export const GetOwnedProcesses: TypedDocumentNode<GetAllProcessesType, { owner: 
           }
           owner {
             address
+          }
+          block {
+            timestamp
+            height
           }
         }
         cursor
@@ -147,7 +152,7 @@ export const GetSchedulerLocation: TypedDocumentNode<GetSchedulerLocationType, {
   }
 `;
 
-interface GetSpawnedByType {
+export interface GetSpawnedByType {
   transactions: {
     pageInfo: {
       hasNextPage: boolean;

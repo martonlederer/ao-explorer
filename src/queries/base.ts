@@ -80,7 +80,7 @@ export interface FullTransactionNodeQueryType {
 }
 
 export const GetOutgoingTransactions: TypedDocumentNode<FullTransactionNodeQueryType, { owner: string; cursor?: string }> = gql`
-  query GetOutgoingMessages ($owner: String!, $cursor: String) {
+  query GetOutgoingTransactions ($owner: String!, $cursor: String) {
     transactions(
       owners: [$owner]
       first: 100
@@ -126,7 +126,7 @@ export const GetOutgoingTransactions: TypedDocumentNode<FullTransactionNodeQuery
 `;
 
 export const GetIncomingTransactions: TypedDocumentNode<FullTransactionNodeQueryType, { recipient: string; cursor?: string }> = gql`
-  query GetOutgoingMessages ($recipient: String!, $cursor: String) {
+  query GetIncomingTransactions ($recipient: String!, $cursor: String) {
     transactions(
       recipients: [$recipient]
       first: 100

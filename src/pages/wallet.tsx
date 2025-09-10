@@ -6,16 +6,19 @@ import Table, { TransactionType } from "../components/Table";
 // @ts-expect-error
 import { ARIO } from "@ar.io/sdk/web";
 import { dryrun } from "@permaweb/aoconnect";
-import { Tag } from "../queries/processes";
+import { GetOwnedProcesses, Tag } from "../queries/processes";
 import { styled } from "@linaria/react";
-import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, formatTimestamp } from "./process";
+import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, TokenIcon, TokenTicker, formatTimestamp } from "./process";
 import { useApolloClient } from "@apollo/client";
 import { FullTransactionNode, GetIncomingTransactions, GetOutgoingTransactions } from "../queries/base";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { LoadingStatus } from ".";
 import { Link } from "wouter";
-import { formatAddress } from "../utils/format";
+import { formatAddress, formatQuantity, getTagValue } from "../utils/format";
 import EntityLink from "../components/EntityLink";
+import { wellKnownTokens } from "../ao/well_known";
+import { GetTransfersFor, TransactionNode } from "../queries/messages";
+import { Message } from "./interaction";
 
 const ario = ARIO.mainnet();
 
@@ -175,6 +178,108 @@ export default function Wallet({ address }: Props) {
     setIncoming([]);
     setHasMoreIncoming(true);
     fetchIncoming();
+  }, [address, gateway]);
+
+  const [ownedProcesses, setOwnedProcesses] = useState<Process[]>([]);
+  const [hasMoreOwnedProcesses, setHasMoreOwnedProcesses] = useState(true);
+
+  async function fetchOwnedProcesses() {
+    if (!address) return;
+    const res = await client.query({
+      query: GetOwnedProcesses,
+      variables: {
+        owner: address,
+        cursor: ownedProcesses[ownedProcesses.length - 1]?.cursor
+      }
+    });
+
+    setHasMoreOwnedProcesses(res.data.transactions.pageInfo.hasNextPage);
+    setOwnedProcesses((val) => [
+      ...val,
+      ...res.data.transactions.edges.map((tx) => ({
+        id: tx.node.id,
+        name: tx.node.tags.find((tag) => tag.name === "Name")?.value || "-",
+        module: tx.node.tags.find((tag) => tag.name === "Module")?.value || "-",
+        block: tx.node.block?.height,
+        time: tx.node.block?.timestamp,
+        cursor: tx.cursor
+      })).filter((process) => !val.find(p => p.id === process.id))
+    ]);
+  }
+
+  useEffect(() => {
+    setOwnedProcesses([]);
+    fetchOwnedProcesses();
+  }, [address]);
+
+  const [cachedTokens, setCachedTokens] = useState<Record<string, { name: string; ticker: string; denomination: bigint; logo: string; } | "pending">>(wellKnownTokens);
+  const [transfers, setTransfers] = useState<{ id: string; dir: "in" | "out"; from: string; to: string; quantity: string; token: string; time?: number; original: Omit<TransactionNode, "recipient">; cursor: string; }[]>([]);
+  const [hasMoreTransfers, setHasMoreTransfers] = useState(true);
+
+  async function fetchTransfers() {
+    const res = await client.query({
+      query: GetTransfersFor,
+      variables: {
+        process: address,
+        cursor: transfers[transfers.length - 1]?.cursor
+      }
+    });
+
+    setHasMoreTransfers(res.data.transactions.pageInfo.hasNextPage);
+    setTransfers((val) => {
+      for (const tx of res.data.transactions.edges) {
+        if (val.find((t) => t.id === tx.node.id)) continue;
+        const dir = getTagValue("Action", tx.node.tags) === "Credit-Notice" ? "in" : "out";
+        const token = getTagValue("Forwarded-For", tx.node.tags) || getTagValue("From-Process", tx.node.tags) || tx.node.owner.address;
+
+        cacheToken(token);
+        val.push({
+          id: tx.node.id,
+          dir,
+          from: dir === "in" ? getTagValue("Sender", tx.node.tags) || "" : address,
+          to: dir === "out" ? getTagValue("Recipient", tx.node.tags) || "" : address,
+          quantity: getTagValue("Quantity", tx.node.tags) || "0",
+          token,
+          time: tx.node.block?.timestamp,
+          original: tx.node,
+          cursor: tx.cursor
+        });
+      }
+
+      return val;
+    });
+  }
+
+  async function cacheToken(token: string) {
+    if (cachedTokens[token]) return;
+    setCachedTokens((val) => {
+      val[token] = "pending";
+      return val;
+    });
+
+    try {
+      const res: Message | undefined = (await dryrun({
+        process: token,
+        tags: [{ name: "Action", value: "Info" }]
+      })).Messages.find((msg: Message) => !!getTagValue("Ticker", msg.Tags));
+
+      if (!res) return;
+      setCachedTokens((val) => {
+        val[token] = {
+          name: getTagValue("Name", res.Tags) || getTagValue("Ticker", res.Tags) || "",
+          ticker: getTagValue("Ticker", res.Tags) || "",
+          denomination: BigInt(getTagValue("Denomination", res.Tags) || 0),
+          logo: getTagValue("Logo", res.Tags) || ""
+        };
+        return val;
+      });
+    } catch {}
+  }
+
+  useEffect(() => {
+    setTransfers([]);
+    setHasMoreTransfers(true);
+    fetchTransfers();
   }, [address, gateway]);
 
   return (
@@ -350,6 +455,113 @@ export default function Wallet({ address }: Props) {
           </Table>
         </InfiniteScroll>
       )}
+      {interactionsMode === "spawns" && (
+        <InfiniteScroll
+          dataLength={ownedProcesses.length}
+          next={fetchOwnedProcesses}
+          hasMore={hasMoreOwnedProcesses}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
+          <Table>
+            <tr>
+              <th></th>
+              <th>Name</th>
+              <th>Process ID</th>
+              <th>Module</th>
+              <th>Block</th>
+              <th>Time</th>
+            </tr>
+            {ownedProcesses.map((process, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/${process.id}`} style={{ textOverflow: "ellipsis", maxWidth: "17rem", overflow: "hidden", whiteSpace: "nowrap" }}>
+                    {process.name}
+                  </Link>
+                </td>
+                <td>
+                  <Link to={`#/${process.id}`}>
+                    {formatAddress(process.id, 7)}
+                  </Link>
+                </td>
+                <td>
+                  <EntityLink address={process.module} />
+                </td>
+                <td>
+                  {process.block || ""}
+                </td>
+                <td>
+                  {formatTimestamp(process.time && process.time * 1000)}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </InfiniteScroll>
+      )}
+      {interactionsMode === "transfers" && (
+        <InfiniteScroll
+          dataLength={transfers.length}
+          next={fetchTransfers}
+          hasMore={hasMoreTransfers}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
+          <Table>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Amount</th>
+              <th>Time</th>
+            </tr>
+            {transfers.map((transfer, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/${transfer.id}`}>
+                    {formatAddress(transfer.id)}
+                  </Link>
+                  {/*{<EntityLink address={transfer.id} transaction={transfer.original} />}*/}
+                </td>
+                <td>
+                  <EntityLink address={transfer.from} />
+                </td>
+                <td>
+                  <EntityLink address={transfer.to} />
+                </td>
+                <td>
+                  <Link to={`#/${transfer.token}`}>
+                    <span style={{ color: transfer.dir === "out" ? "#ff0000" : "#00db5f" }}>
+                      {transfer.dir === "out" ? "-" : "+"}
+                      {//@ts-expect-error
+                        formatQuantity(new Quantity(transfer.quantity, cachedTokens[transfer.token] !== "pending" ? cachedTokens[transfer.token]?.denomination || 12n : 12n))}
+                    </span>
+                    {typeof cachedTokens[transfer.token] !== "undefined" && cachedTokens[transfer.token] !== "pending" && (
+                      <TokenTicker>
+                        <TokenIcon src={`${gateway}/${(cachedTokens[transfer.token] as any).logo}`} draggable={false} />
+                        {(cachedTokens[transfer.token] as any).ticker}
+                      </TokenTicker>
+                    )}
+                  </Link>
+                </td>
+                <td>
+                  {formatTimestamp(transfer.time ? transfer.time * 1000 : undefined)}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </InfiniteScroll>
+      )}
       <Space />
     </Wrapper>
   );
@@ -363,4 +575,13 @@ const Balance = styled.div`
 
 interface Props {
   address: string;
+}
+
+interface Process {
+  id: string;
+  name: string;
+  module: string;
+  cursor: string;
+  block?: number;
+  time?: number;
 }

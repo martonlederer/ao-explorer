@@ -86,7 +86,7 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
       {info.Logo && (
         <TokenLogo src={`${gateway}/${info.Logo}`} draggable={false} />
       )}
-      {info.Name || arnsName || tags.Name || formatAddress(address)}
+      {info.Ticker || info.Name || arnsName || tags.Ticker || tags.Name || formatAddress(address)}
       {arnsName && !info.Logo && <TokenLogo src="/arns.svg" draggable={false} />}
       <Tooltip>
         {address}

@@ -970,7 +970,7 @@ export default function Process({ initTx }: Props) {
                   <EntityLink address={transfer.from} />
                 </td>
                 <td>
-                  <EntityLink address={transfer.from} />
+                  <EntityLink address={transfer.to} />
                 </td>
                 <td>
                   <Link to={`#/${transfer.token}`}>
@@ -1208,14 +1208,14 @@ interface OutgoingInteraction {
   cursor: string;
 }
 
-const TokenTicker = styled.span`
+export const TokenTicker = styled.span`
   display: flex;
   align-items: center;
   gap: 0.25rem;
   margin-left: .2rem;
 `;
 
-const TokenIcon = styled.img`
+export const TokenIcon = styled.img`
   width: 1.1em;
   height: 1.1em;
   border-radius: 100%;
