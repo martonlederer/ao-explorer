@@ -1,5 +1,5 @@
-import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper, Tables } from "../components/Page";
-import { DownloadIcon, ShareIcon } from "@iconicicons/react";
+import { Copy, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper, Tables } from "../components/Page";
+import { DownloadIcon } from "@iconicicons/react";
 import { createDataItemSigner, message, dryrun, result } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import { formatAddress, getTagValue } from "../utils/format";
@@ -24,7 +24,7 @@ import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
 import { GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
-import { GetSchedulerLocation, GetSpawnMessage, GetSpawnedBy, Tag } from "../queries/processes";
+import { GetSchedulerLocation, GetSpawnedBy, Tag } from "../queries/processes";
 import { useApolloClient } from "@apollo/client";
 import EntityLink from "../components/EntityLink";
 import { wellKnownTokens } from "../ao/well_known";

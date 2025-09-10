@@ -17,6 +17,7 @@ import { setupApollo } from "./utils/gql_client";
 import { useEffect, useState } from "react";
 import { CurrentTransactionProvider } from "./components/CurrentTransactionProvider";
 import Entity from "./pages/entity";
+import Block from "./pages/block";
 
 const convertPathToRegexp = (path: string) => {
   let keys: Key[] = [];
@@ -80,6 +81,9 @@ function App() {
                     <Route path="/" component={Home} />
                     <Route path="/:id([a-zA-Z0-9_-]{43})">
                       {(props) => <Entity id={props.id} />}
+                    </Route>
+                    <Route path="/:height([0-9]+)">
+                      {(props) => <Block height={props.height} />}
                     </Route>
                     <Route path="/message/:message">
                       {(props) => <Redirect to={`/${props.message}`} />}

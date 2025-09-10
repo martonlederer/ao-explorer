@@ -1,3 +1,4 @@
+import { Quantity } from "ao-tokens-lite";
 import { Tag } from "../queries/processes";
 
 export function formatAddress(address: string, count = 10) {
@@ -31,5 +32,16 @@ export function formatQuantity(val: string | number) {
     maximumFractionDigits = val < 1 ? 12 : 4;
   }
 
+  return val.toLocaleString(undefined, { maximumFractionDigits });
+}
+
+export function formatTokenQuantity(val: Quantity) {
+  let maximumFractionDigits = 2;
+
+  if (Quantity.lt(val, new Quantity(999n, 0n))) {
+    maximumFractionDigits = Quantity.lt(val, new Quantity(1n, 0n)) ? 12 : 4;
+  }
+
+  // @ts-expect-error
   return val.toLocaleString(undefined, { maximumFractionDigits });
 }

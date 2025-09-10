@@ -22,7 +22,7 @@ import { Message } from "./interaction";
 
 const ario = ARIO.mainnet();
 
-interface TransactionListItem {
+export interface TransactionListItem {
   type: "Message" | "Process" | "Module" | "Assignment" | "Bundle" | undefined;
   id: string;
   owner: string;
