@@ -7,7 +7,7 @@ import dayjs from "dayjs";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { styled } from "@linaria/react";
 import { FullTransactionNode, GetTransactionsInBundle } from "../queries/base";
-import { formatJSONOrString, formatQuantity } from "../utils/format";
+import { formatAddress, formatJSONOrString, formatQuantity, getTagValue } from "../utils/format";
 import { Link } from "wouter";
 import prettyBytes from "pretty-bytes";
 import { useGateway } from "../utils/hooks";
@@ -17,6 +17,7 @@ import InfiniteScroll from "react-infinite-scroll-component";
 import { LoadingStatus } from ".";
 import { useApolloClient } from "@apollo/client";
 import { TransactionListItem } from "./wallet";
+import { GetProcessesForModule } from "../queries/processes";
 
 dayjs.extend(relativeTime);
 
@@ -105,10 +106,51 @@ export default function Transaction({ transaction }: Props) {
     fetchTransactions();
   }, [transaction.id, isBundle]);
 
+  const isModule = useMemo(
+    () => tags.Type === "Module" && tags["Data-Protocol"] === "ao",
+    [tags]
+  );
+
+  const [hasMoreProcesses, setHasMoreProcesses] = useState(true);
+  const [processes, setProcesses] = useState<Process[]>([]);
+
+  async function fetchProcesses() {
+    const res = await client.query({
+      query: GetProcessesForModule,
+      variables: {
+        module: transaction.id,
+        cursor: processes[processes.length - 1]?.cursor
+      }
+    });
+
+    setHasMoreProcesses(res.data.transactions.pageInfo.hasNextPage);
+    setProcesses((val) => {
+      for (const tx of res.data.transactions.edges) {
+        if (val.find((t) => t.id === tx.node.id)) continue;
+        val.push({
+          id: tx.node.id,
+          name: getTagValue("Name", tx.node.tags) || "-",
+          owner: getTagValue("From-Process", tx.node.tags) || tx.node.owner.address,
+          block: tx.node.block?.height || 0,
+          time: tx.node.block?.timestamp || 0,
+          cursor: tx.cursor
+        });
+      }
+
+      return val;
+    });
+  }
+
+  useEffect(() => {
+    setProcesses([]);
+    setHasMoreProcesses(true);
+    fetchProcesses();
+  }, [transaction.id, isModule]);
+
   return (
     <Wrapper>
       <ProcessTitle>
-        {(!isBundle && "Transaction" )|| "Bundle"}
+        {(isBundle && "Bundle" ) || (isModule && "Module") || "Transaction"}
       </ProcessTitle>
       <ProcessID>
         {transaction.id}
@@ -207,8 +249,8 @@ export default function Transaction({ transaction }: Props) {
           </tr>
         </Table>
       </Tables>
-      <Space y={isBundle ? 1 : 3} />
-      {(!isBundle && (
+      <Space y={isBundle || isModule ? 1 : 3} />
+      {!isBundle && !isModule && (
         <QueryTab style={{ gap: "1rem 2rem" }}>
           <DataTitle>Signature</DataTitle>
           <DataTitle>Data</DataTitle>
@@ -222,17 +264,18 @@ export default function Transaction({ transaction }: Props) {
           {dataType === "image" && (
             <Image src={data} draggable={false} />
           ) || (
-            <Editor
-              theme="vs-dark"
-              defaultLanguage="json"
-              defaultValue={"{}\n"}
-              language={transaction.data.type?.split("/")?.[1]}
-              value={formatJSONOrString(data) + "\n"}
-              options={{ minimap: { enabled: false }, readOnly: true }}
-            />
-          )}
+              <Editor
+                theme="vs-dark"
+                defaultLanguage="json"
+                defaultValue={"{}\n"}
+                language={transaction.data.type?.split("/")?.[1]}
+                value={formatJSONOrString(data) + "\n"}
+                options={{ minimap: { enabled: false }, readOnly: true }}
+              />
+            )}
         </QueryTab>
-      )) || (
+      )}
+      {isBundle && (
         <>
           <Title>
             Transactions
@@ -285,6 +328,59 @@ export default function Transaction({ transaction }: Props) {
           </InfiniteScroll>
         </>
       )}
+      {isModule && (
+        <>
+          <Title>
+            Processes
+          </Title>
+          <InfiniteScroll
+            dataLength={processes.length}
+            next={fetchProcesses}
+            hasMore={hasMoreProcesses}
+            loader={<LoadingStatus>Loading...</LoadingStatus>}
+            endMessage={
+              <LoadingStatus>
+                You've reached the end...
+              </LoadingStatus>
+            }
+          >
+            <Table>
+              <tr>
+                <th></th>
+                <th>Name</th>
+                <th>Process ID</th>
+                <th>Owner</th>
+                <th>Block</th>
+                <th>Time</th>
+              </tr>
+              {processes.map((process, i) => (
+                <tr key={i}>
+                  <td></td>
+                  <td>
+                    <Link to={`#/${process.id}`} style={{ textOverflow: "ellipsis", maxWidth: "17rem", overflow: "hidden", whiteSpace: "nowrap" }}>
+                      {process.name}
+                    </Link>
+                  </td>
+                  <td>
+                    <Link to={`#/${process.id}`}>
+                      {formatAddress(process.id, 7)}
+                    </Link>
+                  </td>
+                  <td>
+                    <EntityLink address={process.owner} />
+                  </td>
+                  <td>
+                    {process.block || ""}
+                  </td>
+                  <td>
+                    {formatTimestamp(process.time && process.time * 1000)}
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          </InfiniteScroll>
+        </>
+      )}
       <Space />
     </Wrapper>
   );
@@ -303,4 +399,13 @@ const Image = styled.img`
 
 interface Props {
   transaction: FullTransactionNode;
+}
+
+interface Process {
+  id: string;
+  name: string;
+  owner: string;
+  block?: number;
+  time?: number;
+  cursor: string;
 }
