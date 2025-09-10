@@ -2,7 +2,7 @@ import { Copy, ProcessID, ProcessName, ProcessTitle, Space, Tables, TokenLogo, W
 import { useEffect, useState } from "react";
 import { useGateway } from "../utils/hooks";
 import { Quantity } from "ao-tokens-lite";
-import Table from "../components/Table";
+import Table, { TransactionType } from "../components/Table";
 // @ts-expect-error
 import { ARIO } from "@ar.io/sdk/web";
 import { dryrun } from "@permaweb/aoconnect";
@@ -10,7 +10,7 @@ import { Tag } from "../queries/processes";
 import { styled } from "@linaria/react";
 import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, formatTimestamp } from "./process";
 import { useApolloClient } from "@apollo/client";
-import { FullTransactionNode, GetOutgoingTransactions } from "../queries/base";
+import { FullTransactionNode, GetIncomingTransactions, GetOutgoingTransactions } from "../queries/base";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { LoadingStatus } from ".";
 import { Link } from "wouter";
@@ -133,6 +133,50 @@ export default function Wallet({ address }: Props) {
     fetchOutgoing();
   }, [address, gateway]);
 
+  const [hasMoreIncoming, setHasMoreIncoming] = useState(true);
+  const [incoming, setIncoming] = useState<TransactionListItem[]>([]);
+
+  async function fetchIncoming() {
+    const res = await client.query({
+      query: GetIncomingTransactions,
+      variables: {
+        recipient: address,
+        cursor: incoming[incoming.length - 1]?.cursor
+      }
+    });
+
+    setHasMoreIncoming(res.data.transactions.pageInfo.hasNextPage);
+    setIncoming((val) => {
+      // manually filter out duplicate transactions
+      // for some reason, the ar.io nodes return the
+      // same transaction multiple times for certain
+      // queries
+      for (const tx of res.data.transactions.edges) {
+        if (val.find((t) => t.id === tx.node.id)) continue;
+        val.push({
+          // @ts-expect-error
+          type: tx.node.tags.find((tag) => tag.name === "Type")?.value || "Transaction",
+          id: tx.node.id,
+          owner: tx.node.tags.find((tag) => tag.name === "From-Process")?.value || tx.node.owner.address,
+          target: tx.node.recipient,
+          action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
+          block: tx.node.block?.height || 0,
+          time: tx.node.block?.timestamp,
+          original: tx.node,
+          cursor: tx.cursor
+        });
+      }
+
+      return val;
+    });
+  }
+
+  useEffect(() => {
+    setIncoming([]);
+    setHasMoreIncoming(true);
+    fetchIncoming();
+  }, [address, gateway]);
+
   return (
     <Wrapper>
       <ProcessTitle>
@@ -234,9 +278,9 @@ export default function Wallet({ address }: Props) {
             {outgoing.map((tx, i) => (
               <tr key={i}>
                 <td>
-                  <Type>
+                  <TransactionType>
                     {tx.type}
-                  </Type>
+                  </TransactionType>
                 </td>
                 <td>
                   <EntityLink address={tx.id} transaction={tx.original} />
@@ -258,18 +302,58 @@ export default function Wallet({ address }: Props) {
           </Table>
         </InfiniteScroll>
       )}
+      {interactionsMode === "incoming" && (
+        <InfiniteScroll
+          dataLength={incoming.length}
+          next={fetchIncoming}
+          hasMore={hasMoreIncoming}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
+          <Table>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Action</th>
+              <th>From</th>
+              <th>Block</th>
+              <th>Time</th>
+            </tr>
+            {incoming.map((tx, i) => (
+              <tr key={i}>
+                <td>
+                  <TransactionType>
+                    {tx.type}
+                  </TransactionType>
+                </td>
+                <td>
+                  <EntityLink address={tx.id} transaction={tx.original} />
+                </td>
+                <td>
+                  {tx.action}
+                </td>
+                <td>
+                  <EntityLink address={tx.owner} />
+                </td>
+                <td>
+                  {tx.block}
+                </td>
+                <td>
+                  {formatTimestamp(tx.time && tx.time * 1000)}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </InfiniteScroll>
+      )}
       <Space />
     </Wrapper>
   );
 }
-
-const Type = styled.span`
-  background-color: rgba(4, 255, 0, .23);
-  color: #fff;
-  text-transform: uppercase;
-  padding: .16rem .25rem;
-  font-size: .8rem;
-`;
 
 const Balance = styled.div`
   display: flex;

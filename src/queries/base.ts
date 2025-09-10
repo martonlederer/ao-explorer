@@ -67,7 +67,7 @@ export const GetTransaction: TypedDocumentNode<GetTransactionType, { id: string 
   }
 `;
 
-export interface GetOutgoingTransactionsType {
+export interface FullTransactionNodeQueryType {
   transactions: {
     pageInfo: {
       hasNextPage: boolean;
@@ -79,13 +79,56 @@ export interface GetOutgoingTransactionsType {
   };
 }
 
-export const GetOutgoingTransactions: TypedDocumentNode<GetOutgoingTransactionsType, { owner: string; cursor?: string }> = gql`
+export const GetOutgoingTransactions: TypedDocumentNode<FullTransactionNodeQueryType, { owner: string; cursor?: string }> = gql`
   query GetOutgoingMessages ($owner: String!, $cursor: String) {
     transactions(
       owners: [$owner]
-      tags: [
-        { name: "Data-Protocol", values: ["ao"] }
-      ],
+      first: 100
+      after: $cursor
+    ) {
+      pageInfo {
+        hasNextPage
+      }
+      edges {
+        node {
+          id
+          tags {
+            name
+            value
+          }
+          owner {
+            address
+          }
+          recipient
+          block {
+            height
+            timestamp
+          }
+          signature
+          quantity {
+            ar
+          }
+          fee {
+            ar
+          }
+          data {
+            size
+            type
+          }
+          bundledIn {
+            id
+          }
+        }
+        cursor
+      }
+    }
+  }
+`;
+
+export const GetIncomingTransactions: TypedDocumentNode<FullTransactionNodeQueryType, { recipient: string; cursor?: string }> = gql`
+  query GetOutgoingMessages ($recipient: String!, $cursor: String) {
+    transactions(
+      recipients: [$recipient]
       first: 100
       after: $cursor
     ) {
