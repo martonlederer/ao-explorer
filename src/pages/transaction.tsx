@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, ProcessID, ProcessTitle, Space, Tables, Wrapper } from "../components/Page";
-import Table from "../components/Table";
+import { Copy, ProcessID, ProcessTitle, Space, Tables, Title, Wrapper } from "../components/Page";
+import Table, { TransactionType } from "../components/Table";
 import EntityLink from "../components/EntityLink";
 import relativeTime from "dayjs/plugin/relativeTime";
 import dayjs from "dayjs";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { styled } from "@linaria/react";
-import { FullTransactionNode } from "../queries/base";
+import { FullTransactionNode, GetTransactionsInBundle } from "../queries/base";
 import { formatJSONOrString, formatQuantity } from "../utils/format";
 import { Link } from "wouter";
 import prettyBytes from "pretty-bytes";
 import { useGateway } from "../utils/hooks";
-import { QueryTab } from "./process";
+import { QueryTab, formatTimestamp } from "./process";
 import { Editor } from "@monaco-editor/react";
+import InfiniteScroll from "react-infinite-scroll-component";
+import { LoadingStatus } from ".";
+import { useApolloClient } from "@apollo/client";
+import { TransactionListItem } from "./wallet";
 
 dayjs.extend(relativeTime);
 
@@ -50,10 +54,61 @@ export default function Transaction({ transaction }: Props) {
     })();
   }, [transaction, gateway, dataType]);
 
+  const isBundle = useMemo(
+    () => typeof tags["Bundle-Format"] !== "undefined" || typeof tags["Bundle-Version"] !== "undefined",
+    [tags]
+  );
+
+  const client = useApolloClient();
+
+  const [hasMoreTransactions, setHasMoreTransactions] = useState(true);
+  const [transactions, setTransactions] = useState<TransactionListItem[]>([]);
+
+  async function fetchTransactions() {
+    if (!isBundle) return;
+    const res = await client.query({
+      query: GetTransactionsInBundle,
+      variables: {
+        bundle: transaction.id,
+        cursor: transactions[transactions.length - 1]?.cursor
+      }
+    });
+
+    setHasMoreTransactions(res.data.transactions.pageInfo.hasNextPage);
+    setTransactions((val) => {
+      // manually filter out duplicate transactions
+      // for some reason, the ar.io nodes return the
+      // same transaction multiple times for certain
+      // queries
+      for (const tx of res.data.transactions.edges) {
+        val.push({
+          // @ts-expect-error
+          type: tx.node.tags.find((tag) => tag.name === "Type")?.value || "Transaction",
+          id: tx.node.id,
+          owner: tx.node.tags.find((tag) => tag.name === "From-Process")?.value || tx.node.owner.address,
+          target: tx.node.recipient,
+          action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
+          block: tx.node.block?.height || 0,
+          time: tx.node.block?.timestamp,
+          original: tx.node,
+          cursor: tx.cursor
+        });
+      }
+
+      return val;
+    });
+  }
+
+  useEffect(() => {
+    setTransactions([]);
+    setHasMoreTransactions(true);
+    fetchTransactions();
+  }, [transaction.id, isBundle]);
+
   return (
     <Wrapper>
       <ProcessTitle>
-        Transaction
+        {(!isBundle && "Transaction" )|| "Bundle"}
       </ProcessTitle>
       <ProcessID>
         {transaction.id}
@@ -152,30 +207,84 @@ export default function Transaction({ transaction }: Props) {
           </tr>
         </Table>
       </Tables>
-      <Space />
-      <QueryTab style={{ gap: "1rem 2rem" }}>
-        <DataTitle>Signature</DataTitle>
-        <DataTitle>Data</DataTitle>
-        <Editor
-          theme="vs-dark"
-          defaultLanguage="json"
-          defaultValue={""}
-          value={transaction.signature + "\n"}
-          options={{ minimap: { enabled: false }, readOnly: true, wordWrap: true }}
-        />
-        {dataType === "image" && (
-          <Image src={data} draggable={false} />
-        ) || (
+      <Space y={isBundle ? 1 : 3} />
+      {(!isBundle && (
+        <QueryTab style={{ gap: "1rem 2rem" }}>
+          <DataTitle>Signature</DataTitle>
+          <DataTitle>Data</DataTitle>
           <Editor
             theme="vs-dark"
             defaultLanguage="json"
-            defaultValue={"{}\n"}
-            language={transaction.data.type?.split("/")?.[1]}
-            value={formatJSONOrString(data) + "\n"}
-            options={{ minimap: { enabled: false }, readOnly: true }}
+            defaultValue={""}
+            value={transaction.signature + "\n"}
+            options={{ minimap: { enabled: false }, readOnly: true, wordWrap: true }}
           />
-        )}
-      </QueryTab>
+          {dataType === "image" && (
+            <Image src={data} draggable={false} />
+          ) || (
+            <Editor
+              theme="vs-dark"
+              defaultLanguage="json"
+              defaultValue={"{}\n"}
+              language={transaction.data.type?.split("/")?.[1]}
+              value={formatJSONOrString(data) + "\n"}
+              options={{ minimap: { enabled: false }, readOnly: true }}
+            />
+          )}
+        </QueryTab>
+      )) || (
+        <>
+          <Title>
+            Transactions
+          </Title>
+          <InfiniteScroll
+            dataLength={transactions.length}
+            next={fetchTransactions}
+            hasMore={hasMoreTransactions}
+            loader={<LoadingStatus>Loading...</LoadingStatus>}
+            endMessage={
+              <LoadingStatus>
+                You've reached the end...
+              </LoadingStatus>
+            }
+          >
+            <Table>
+              <tr>
+                <th></th>
+                <th>ID</th>
+                <th>Action</th>
+                <th>From</th>
+                <th>Block</th>
+                <th>Time</th>
+              </tr>
+              {transactions.map((tx, i) => (
+                <tr key={i}>
+                  <td>
+                    <TransactionType>
+                      {tx.type}
+                    </TransactionType>
+                  </td>
+                  <td>
+                    <EntityLink address={tx.id} transaction={tx.original} idonly />
+                  </td>
+                  <td>
+                    {tx.action}
+                  </td>
+                  <td>
+                    <EntityLink address={tx.owner} />
+                  </td>
+                  <td>
+                    {tx.block}
+                  </td>
+                  <td>
+                    {formatTimestamp(tx.time && tx.time * 1000)}
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          </InfiniteScroll>
+        </>
+      )}
       <Space />
     </Wrapper>
   );

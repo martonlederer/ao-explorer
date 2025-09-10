@@ -84,8 +84,6 @@ export default function Block({ height }: Props) {
     fetchTransactions();
   }, [height]);
 
-  useEffect(() => console.log(transactions), [transactions])
-
   if (loadingBlock || !block) {
     return (
       <Wrapper>

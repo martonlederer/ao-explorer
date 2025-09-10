@@ -249,3 +249,49 @@ export const GetTransactionsForBlock: TypedDocumentNode<FullTransactionNodeQuery
     }
   }
 `;
+
+export const GetTransactionsInBundle: TypedDocumentNode<FullTransactionNodeQueryType, { bundle: string; cursor?: string }> = gql`
+  query GetTransactionsInBundle ($bundle: ID!, $cursor: String) {
+    transactions(
+      bundledIn: [$bundle]
+      first: 100
+      after: $cursor
+    ) {
+      pageInfo {
+        hasNextPage
+      }
+      edges {
+        node {
+          id
+          tags {
+            name
+            value
+          }
+          owner {
+            address
+          }
+          recipient
+          block {
+            height
+            timestamp
+          }
+          signature
+          quantity {
+            ar
+          }
+          fee {
+            ar
+          }
+          data {
+            size
+            type
+          }
+          bundledIn {
+            id
+          }
+        }
+        cursor
+      }
+    }
+  }
+`;
