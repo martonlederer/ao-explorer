@@ -2,7 +2,7 @@ import { styled } from "@linaria/react";
 import { HTMLProps, useContext, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@apollo/client";
-import { formatAddress } from "../utils/format";
+import { formatAddress, getTagValue } from "../utils/format";
 import { FullTransactionNode, GetTransaction } from "../queries/base";
 // @ts-expect-error
 import { ARIO } from "@ar.io/sdk/web";
@@ -12,10 +12,11 @@ import { useGateway } from "../utils/hooks";
 import { TokenLogo } from "./Page";
 import { useInView } from "react-intersection-observer";
 import { CurrentTransactionContext } from "./CurrentTransactionProvider";
+import { Tag } from "../queries/processes";
 
 const ario = ARIO.mainnet();
 
-export default function EntityLink({ address, transaction: defaultTransaction, accent, idonly, ...props }: HTMLProps<HTMLAnchorElement> & Props) {
+export default function EntityLink({ address, transaction: defaultTransaction, messageTargetProcess, accent, idonly, ...props }: HTMLProps<HTMLAnchorElement> & Props) {
   const { ref, inView } = useInView({
     triggerOnce: true,
     rootMargin: "200px 0px"
@@ -23,11 +24,51 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
 
   const { loading, data } = useQuery(GetTransaction, {
     variables: { id: address },
-    skip: !!defaultTransaction || !inView
+    skip: !!defaultTransaction || !inView || !!messageTargetProcess
   });
+
+  const [fallbackTransaction, setFallbackTransaction] = useState<FullTransactionNode>();
+
+  useEffect(() => {
+    (async () => {
+      // only run, if the transaction was not found on gql
+      if (!!defaultTransaction || !inView || loading || data?.transactions?.edges?.[0]?.node?.id === address) return;
+      const su = "https://su-router.ao-testnet.xyz";
+
+      // for messages
+      if (messageTargetProcess) {
+        const res = await (
+          await fetch(`${su}/${address}?process=${messageTargetProcess}`)
+        ).json();
+        if (res.error) return;
+
+        res.message.block = {
+          height: parseInt(getTagValue("Block-Height", res.assignment.tags as Tag[]) || "0"),
+          timestamp: parseInt(getTagValue("Timestamp", res.assignment.tags as Tag[]) || "0") / 1000
+        };
+
+        setFallbackTransaction(res.message);
+      } else {
+        // for processes
+        const res = await (
+          await fetch(`${su}/processes/${address}`)
+        ).json();
+        if (res.error) return;
+
+        res.id = res.process_id;
+        res.block = {
+          height: parseInt(res.block),
+          timestamp: parseInt(res.timestamp) / 1000
+        };
+
+        setFallbackTransaction(res);
+      }
+    })();
+  }, [defaultTransaction, inView, address, loading, data, messageTargetProcess]);
+
   const transaction = useMemo(
-    () => defaultTransaction || data?.transactions?.edges?.[0]?.node,
-    [defaultTransaction, data]
+    () => defaultTransaction || data?.transactions?.edges?.[0]?.node || fallbackTransaction,
+    [defaultTransaction, data, fallbackTransaction]
   );
 
   const tags = useMemo(
@@ -45,13 +86,13 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
       try {
         setArnsName(undefined);
 
-        if (!inView || defaultTransaction || !!tags.Type || idonly) return;
+        if (!inView || defaultTransaction || !!tags.Type || idonly || !!messageTargetProcess) return;
 
         const res = await ario.getPrimaryName({ address });
         setArnsName(res?.name);
       } catch {}
     })();
-  }, [address, defaultTransaction, inView, tags, idonly]);
+  }, [address, defaultTransaction, inView, tags, idonly, messageTargetProcess]);
 
   const [info, setInfo] = useState<Record<string, string>>({});
 
@@ -59,7 +100,7 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
     (async () => {
       setInfo({});
 
-      if (idonly || defaultTransaction && defaultTransaction.tags.find(t => t.name === "Type")?.value !== "Process" || !inView) {
+      if (!!messageTargetProcess || idonly || defaultTransaction && defaultTransaction.tags.find(t => t.name === "Type")?.value !== "Process" || !inView) {
         return;
       }
 
@@ -76,7 +117,7 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
 
       setInfo(Object.fromEntries(infoRes.Tags.map(t => [t.name, t.value])))
     })();
-  }, [address, defaultTransaction, inView, idonly]);
+  }, [address, defaultTransaction, inView, idonly, messageTargetProcess]);
 
   const gateway = useGateway();
   const [, setCurrentTx] = useContext(CurrentTransactionContext);
@@ -100,6 +141,7 @@ interface Props {
   transaction?: FullTransactionNode;
   accent?: boolean;
   idonly?: boolean;
+  messageTargetProcess?: string;
 }
 
 const Tooltip = styled.span`

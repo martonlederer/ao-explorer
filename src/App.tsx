@@ -139,6 +139,7 @@ export const globals = css`
 
 const Main = styled.main`
   z-index: 2;
+  padding-bottom: 2rem;
 `;
 
 const BgBlur = styled.div`

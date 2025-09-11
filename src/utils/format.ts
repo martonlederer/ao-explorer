@@ -22,6 +22,15 @@ export function formatJSONOrString(maybeJson: string = "{}") {
   return maybeJson;
 }
 
+export function isJSONString(maybeJson: string) {
+  try {
+    JSON.parse(maybeJson);
+  } catch {
+    return false;
+  }
+  return true;
+}
+
 export function formatQuantity(val: string | number) {
   if (typeof val === "string") {
     val = parseFloat(val);

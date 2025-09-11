@@ -2,7 +2,7 @@ import { Copy, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper, 
 import { DownloadIcon } from "@iconicicons/react";
 import { createDataItemSigner, message, dryrun, result } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
-import { formatAddress, getTagValue } from "../utils/format";
+import { formatAddress, formatJSONOrString, getTagValue, isJSONString } from "../utils/format";
 import { useActiveAddress, useConnection } from "@arweave-wallet-kit/react";
 import advancedFormat from "dayjs/plugin/advancedFormat";
 import TagEl, { TagsWrapper } from "../components/Tag";
@@ -586,6 +586,7 @@ export default function Process({ initTx }: Props) {
 
   const [loadingMessage, setLoadingMessage] = useState(false);
   const [loadingDryRun, setLoadingDryRun] = useState(false);
+  const [lastQueryMessage, setLastQueryMessage] = useState<string | undefined>();
 
   async function messageProcess() {
     if (loadingMessage || loadingDryRun) return;
@@ -594,10 +595,18 @@ export default function Process({ initTx }: Props) {
       if (!connected) await connect();
       const query = parseQuery();
       const messageID = await message(query);
+      setLastQueryMessage(messageID);
+
       const messageResult = await result({
         process: query.process,
         message: messageID
       });
+
+      for (const message of messageResult.Messages as Message[]) {
+        try {
+          message.Data = JSON.parse(message.Data);
+        } catch {}
+      }
 
       setQueryResult(JSON.stringify(messageResult, null, 2));
     } catch (e) {
@@ -612,6 +621,12 @@ export default function Process({ initTx }: Props) {
     try {
       const query = parseQuery(true);
       const dryRunResult = await dryrun(query);
+
+      for (const message of dryRunResult.Messages as Message[]) {
+        try {
+          message.Data = JSON.parse(message.Data);
+        } catch {}
+      }
 
       setQueryResult(JSON.stringify(dryRunResult, null, 2));
     } catch (e) {
@@ -858,6 +873,13 @@ export default function Process({ initTx }: Props) {
             />
           </QueryTab>
           <QueryBtns>
+            {lastQueryMessage && (
+              <LastMessage>
+                Message ID:
+                {" "}
+                <EntityLink address={lastQueryMessage} messageTargetProcess={id} />
+              </LastMessage>
+            )}
             <Button onClick={dryRunProcess}>
               {!loadingDryRun ? "Dry run" : "Loading..."}
             </Button>
@@ -1255,5 +1277,19 @@ const BookmarkProcess = styled(BookmarkIcon)<{ filled: boolean }>`
 
   path {
     fill: ${(props) => props.filled ? "currentColor" : "none"};
+  }
+`;
+
+const LastMessage = styled.p`
+  font-size: .8rem;
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    transition: all .17s ease;
+
+    &:hover {
+      opacity: .8;
+    }
   }
 `;
