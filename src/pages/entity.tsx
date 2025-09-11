@@ -6,6 +6,7 @@ import Process from "./process";
 import Interaction from "./interaction";
 import Transaction from "./transaction";
 import Wallet from "./wallet";
+import { NotFound, Wrapper } from "../components/Page";
 
 export default function Entity({ id }: Props) {
   const [transaction, setTransaction] = useContext(CurrentTransactionContext);
@@ -24,6 +25,16 @@ export default function Entity({ id }: Props) {
     () => transaction?.tags?.find((t) => t.name === "Type")?.value,
     [transaction]
   );
+
+  if (loading) {
+    return (
+      <Wrapper>
+        <NotFound>
+          Loading...
+        </NotFound>
+      </Wrapper>
+    );
+  };
 
   if (!transaction) return <Wallet address={id} />;
   else if (type === "Process") return <Process initTx={transaction} />;
