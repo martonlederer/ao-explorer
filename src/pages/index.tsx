@@ -164,12 +164,12 @@ export default function Home() {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/process/${process.id}`}>
+                  <Link to={`#/${process.id}`}>
                     {process.name}
                   </Link>
                 </td>
                 <td>
-                  <Link to={`#/process/${process.id}`}>
+                  <Link to={`#/${process.id}`}>
                     {formatAddress(process.id, 7)}
                   </Link>
                 </td>
@@ -232,12 +232,12 @@ export default function Home() {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/process/${process.id}`} style={{ textOverflow: "ellipsis", maxWidth: "17rem", overflow: "hidden", whiteSpace: "nowrap" }}>
+                  <Link to={`#/${process.id}`} style={{ textOverflow: "ellipsis", maxWidth: "17rem", overflow: "hidden", whiteSpace: "nowrap" }}>
                     {process.name}
                   </Link>
                 </td>
                 <td>
-                  <Link to={`#/process/${process.id}`}>
+                  <Link to={`#/${process.id}`}>
                     {formatAddress(process.id, 7)}
                   </Link>
                 </td>
@@ -272,12 +272,12 @@ export default function Home() {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/process/${process.id}`} style={{ textOverflow: "ellipsis", maxWidth: "17rem", overflow: "hidden", whiteSpace: "nowrap" }}>
+                  <Link to={`#/${process.id}`} style={{ textOverflow: "ellipsis", maxWidth: "17rem", overflow: "hidden", whiteSpace: "nowrap" }}>
                     {process.name}
                   </Link>
                 </td>
                 <td>
-                  <Link to={`#/process/${process.id}`}>
+                  <Link to={`#/${process.id}`}>
                     {formatAddress(process.id, 7)}
                   </Link>
                 </td>
@@ -314,18 +314,18 @@ export default function Home() {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/message/${message.id}`}>
+                  <Link to={`#/${message.id}`}>
                     {formatAddress(message.id, 8)}
                   </Link>
                 </td>
                 <td>{message.action}</td>
                 <td>
-                  <Link to={`#/process/${message.from}`}>
+                  <Link to={`#/${message.from}`}>
                     {formatAddress(message.from, 8)}
                   </Link>
                 </td>
                 <td>
-                  <Link to={`#/process/${message.to}`}>
+                  <Link to={`#/${message.to}`}>
                     {formatAddress(message.to, 8)}
                   </Link>
                 </td>

@@ -5,11 +5,9 @@ import { ArweaveWalletKit } from "@arweave-wallet-kit/react";
 import { pathToRegexp, Key } from "path-to-regexp";
 import { Router, Route, Switch, Redirect } from "wouter";
 import makeCachedMatcher from "wouter/matcher";
-import Interaction from "./pages/interaction";
 import { useGateway } from "./utils/hooks";
 import useHashLocation from "./utils/hash";
 import { styled } from "@linaria/react";
-import Process from "./pages/process";
 import { css } from "@linaria/core";
 import Nav from "./components/Nav";
 import Home from "./pages";
@@ -17,6 +15,10 @@ import { MarkedProvider } from "./components/MarkedProvider";
 import { ApolloClient, ApolloProvider, NormalizedCacheObject } from "@apollo/client";
 import { setupApollo } from "./utils/gql_client";
 import { useEffect, useState } from "react";
+import { CurrentTransactionProvider } from "./components/CurrentTransactionProvider";
+import Entity from "./pages/entity";
+import Block from "./pages/block";
+import Footer from "./components/Footer";
 
 const convertPathToRegexp = (path: string) => {
   let keys: Key[] = [];
@@ -69,28 +71,37 @@ function App() {
       }}
     >
       <ApolloProvider client={apolloClient}>
-        <MarkedProvider>
-          <>
-            <BgBlur />
-            <Router hook={useHashLocation} matcher={customMatcher}>
-              <Nav />
-              <Main>
-                <Switch>
-                  <Route path="/" component={Home} />
-                  <Route path="/message/:message">
-                    {(props) => <Interaction interaction={props.message} />}
-                  </Route>
-                  <Route path="/process/:id">
-                    {(props) => <Process id={props.id} />}
-                  </Route>
-                  <Route path="/process/:id/:message">
-                    {(props) => <Redirect to={`/message/${props.message}`} />}
-                  </Route>
-                </Switch>
-              </Main>
-            </Router>
-          </>
-        </MarkedProvider>
+        <CurrentTransactionProvider>
+          <MarkedProvider>
+            <>
+              <BgBlur />
+              <Router hook={useHashLocation} matcher={customMatcher}>
+                <Nav />
+                <Main>
+                  <Switch>
+                    <Route path="/" component={Home} />
+                    <Route path="/:id([a-zA-Z0-9_-]{43})">
+                      {(props) => <Entity id={props.id} />}
+                    </Route>
+                    <Route path="/:height([0-9]+)">
+                      {(props) => <Block height={props.height} />}
+                    </Route>
+                    <Route path="/message/:message">
+                      {(props) => <Redirect to={`/${props.message}`} />}
+                    </Route>
+                    <Route path="/process/:id">
+                      {(props) => <Redirect to={`/${props.id}`} />}
+                    </Route>
+                    <Route path="/process/:id/:message">
+                      {(props) => <Redirect to={`/${props.message}`} />}
+                    </Route>
+                  </Switch>
+                </Main>
+                <Footer />
+              </Router>
+            </>
+          </MarkedProvider>
+        </CurrentTransactionProvider>
       </ApolloProvider>
     </ArweaveWalletKit>
   );

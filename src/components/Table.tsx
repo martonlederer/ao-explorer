@@ -47,4 +47,12 @@ const Table = styled.table`
   }
 `;
 
+export const TransactionType = styled.span`
+  background-color: rgba(4, 255, 0, .23);
+  color: #fff;
+  text-transform: uppercase;
+  padding: .2rem .28rem;
+  font-size: .68rem;
+`;
+
 export default Table;

@@ -14,7 +14,7 @@ export default function Nav() {
 
   useEffect(() => {
     if (!isAddress(searchVal)) return;
-    setLocation(`#/process/${searchVal}`);
+    setLocation(`#/${searchVal}`);
     setSearchVal("");
   }, [searchVal]);
 
@@ -28,7 +28,11 @@ export default function Nav() {
         <SearchInput
           onChange={(e) => setSearchVal(e.target.value)}
           value={searchVal}
-          placeholder="Search for a process..."
+          onKeyDown={(e) => {
+            if (e.code !== "Enter") return;
+            setLocation(`#/${searchVal}`);
+          }}
+          placeholder="Search for anything..."
         />
       </SearchWrapper>
       {(connected && (

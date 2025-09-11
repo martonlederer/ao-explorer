@@ -1,14 +1,13 @@
 import { LinkedMessageData, getLinkedMessages, useMessageGraph, useProcessGraph } from "../utils/message_graph";
-import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Tables, Wrapper } from "../components/Page";
+import { Copy, ProcessID, ProcessName, ProcessTitle, Space, Tables, Wrapper } from "../components/Page";
 import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
-import { GetMessage, TransactionNode } from "../queries/messages";
+import { TransactionNode } from "../queries/messages";
 import { formatAddress, formatJSONOrString, getTagValue } from "../utils/format";
 import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { useEffect, useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useApolloClient } from "@apollo/client";
-import { ShareIcon } from "@iconicicons/react";
 import { Editor } from "@monaco-editor/react";
 import { result } from "@permaweb/aoconnect";
 import { useGateway } from "../utils/hooks";
@@ -21,6 +20,7 @@ import dayjs from "dayjs";
 import { Graph, GraphNode, GraphLink, GraphConfiguration } from "react-d3-graph";
 import { useLocation } from "wouter";
 import { useResizeDetector } from "react-resize-detector";
+import EntityLink from "../components/EntityLink";
 
 dayjs.extend(relativeTime);
 
@@ -31,71 +31,18 @@ export interface Message {
   Data: string;
 }
 
-export default function Interaction({ interaction }: Props) {
-  const [message, setMessage] = useState<TransactionNode | "loading" | undefined>("loading");
+export default function Interaction({ message }: Props) {
   const gateway = useGateway();
   const client = useApolloClient();
 
-  const process = useMemo<string | undefined>(() => {
-    if (message === "loading" || !message) return undefined;
-    return message.recipient;
-  }, [message]);
+  const process = useMemo<string | undefined>(() => message.recipient, [message]);
 
-  const wait = (time: number) => new Promise((resolve) => setTimeout(resolve, time));
-
-  useEffect(() => {
-    let cancel = false;
-
-    (async () => {
-      let tries = 0;
-
-      while (tries < 5) {
-        try {
-          // get output for token qty
-          const res = await client.query({
-            query: GetMessage,
-            variables: { id: interaction }
-          });
-
-          if (cancel) return;
-
-          // breaks
-          if (res.data.transactions.edges[0]) {
-            return setMessage(res.data.transactions.edges[0].node);
-          }
-
-          // wait a bit to see if the interaction loads
-          await wait(4000);
-        } catch {}
-        tries++;
-      }
-
-      setMessage(undefined);
-    })();
-
-    return () => {
-      cancel = true;
-    };
-  }, [process, interaction, gateway, client]);
-
-  const tags = useMemo(() => {
-    const tagRecord: { [name: string]: string } = {};
-
-    if (!message || message == "loading")
-      return tagRecord;
-
-    for (const tag of message.tags) {
-      tagRecord[tag.name] = tag.value
-    }
-
-    return tagRecord;
-  }, [message]);
+  const tags = useMemo(() => Object.fromEntries(message.tags.map(t => [t.name, t.value])), [message]);
 
   const [data, setData] = useState("");
 
   useEffect(() => {
     (async () => {
-      if (!message || message === "loading") return;
       setData("");
 
       const data = await (
@@ -110,7 +57,7 @@ export default function Interaction({ interaction }: Props) {
 
   useEffect(() => {
     (async () => {
-      if (!process || !message || message === "loading") return;
+      if (!process) return;
       setRes(undefined);
 
       const resultData = await result({
@@ -131,7 +78,6 @@ export default function Interaction({ interaction }: Props) {
   const messageGraph = useMemo(
     () => ({
       nodes: messageGraphRaw.nodes.map((n) => {
-        if (message === "loading" || !message) return n;
         if (n.id === message.id) {
           return {
             ...n,
@@ -149,7 +95,7 @@ export default function Interaction({ interaction }: Props) {
 
   const linkedMessages = useMemo(
     () => {
-      if (!graphData || !message || message === "loading") return [];
+      if (!graphData) return [];
       return [graphData.originalMessage, ...graphData.linkedMessages].filter(
         (node) => node.id !== message.id
       );
@@ -158,7 +104,6 @@ export default function Interaction({ interaction }: Props) {
   );
   const resultingMessages = useMemo(
     () => {
-      if (!message || message === "loading") return [];
       const linksFrom = messageGraph.links.filter((link) => link.source === message.id);
       return linkedMessages.filter((msg) => linksFrom.find((link) => link.target === msg.id));
     },
@@ -167,7 +112,7 @@ export default function Interaction({ interaction }: Props) {
 
   useEffect(() => {
     (async () => {
-      if (!message || message === "loading" || !res) return;
+      if (!res) return;
       setLoadingMessages(true);
       try {
         const res = await getLinkedMessages(message, client);
@@ -227,16 +172,6 @@ export default function Interaction({ interaction }: Props) {
 
   const [, setLocation] = useLocation();
 
-  if (!message || message == "loading") {
-    return (
-      <Wrapper>
-        <NotFound>
-          {(!message && "Could not find message") || "Loading..."}
-        </NotFound>
-      </Wrapper>
-    )
-  }
-
   return (
     <Wrapper>
       <ProcessTitle>
@@ -249,9 +184,9 @@ export default function Interaction({ interaction }: Props) {
         )}
       </ProcessTitle>
       <ProcessID>
-        {interaction}
+        {message.id}
         <Copy
-          onClick={() => navigator.clipboard.writeText(interaction)}
+          onClick={() => navigator.clipboard.writeText(message.id)}
         />
       </ProcessID>
       <Tables>
@@ -260,25 +195,9 @@ export default function Interaction({ interaction }: Props) {
           <tr>
             <td>Owner</td>
             <td>
-              <a href={`https://viewblock.io/arweave/address/${message.owner.address}`} target="_blank" rel="noopener noreferer">
-                {formatAddress(message.owner.address)}
-                <ShareIcon />
-              </a>
+              <EntityLink address={tags["From-Process"] || message.owner.address} />
             </td>
           </tr>
-          {tags["From-Process"] && (
-            <tr>
-              <td>
-                From-Process
-              </td>
-              <td>
-                <Link to={`#/process/${tags["From-Process"]}`}>
-                  {formatAddress(tags["From-Process"])}
-                  <ShareIcon />
-                </Link>
-              </td>
-            </tr>
-          )}
           <tr>
             <td>Variant</td>
             <td>
@@ -297,10 +216,7 @@ export default function Interaction({ interaction }: Props) {
             <tr>
               <td>Process</td>
               <td>
-                <Link to={`#/process/${process}`}>
-                  {formatAddress(process)}
-                  <ShareIcon />
-                </Link>
+                <EntityLink address={process} />
               </td>
             </tr>
           )}
@@ -310,10 +226,7 @@ export default function Interaction({ interaction }: Props) {
                 Pushed-For
               </td>
               <td>
-                <Link to={`#/message/${tags["Pushed-For"]}`}>
-                  {formatAddress(tags["Pushed-For"])}
-                  <ShareIcon />
-                </Link>
+                <EntityLink address={tags["Pushed-For"]} />
               </td>
             </tr>
           )}
@@ -378,7 +291,7 @@ export default function Interaction({ interaction }: Props) {
           <tr key={i}>
             <td></td>
             <td>
-              <Link to={`#/message/${msg.id}`}>
+              <Link to={`#/${msg.id}`}>
                 {formatAddress(msg.id)}
               </Link>
             </td>
@@ -386,14 +299,10 @@ export default function Interaction({ interaction }: Props) {
               {msg.tags.find((t: Tag) => t.name === "Action")?.value || "-"}
             </td>
             <td>
-              <Link to={`#/process/${getTagValue("From-Process", msg.tags) || msg.owner.address}`}>
-                {formatAddress(getTagValue("From-Process", msg.tags) || msg.owner.address)}
-              </Link>
+              <EntityLink address={getTagValue("From-Process", msg.tags) || msg.owner.address} />
             </td>
             <td>
-              <Link to={`#/process/${msg.recipient}`}>
-                {formatAddress(msg.recipient)}
-              </Link>
+              <EntityLink address={msg.recipient} />
             </td>
             <td>
               {msg.block?.height || "Pending..."}
@@ -477,10 +386,6 @@ const DataTitle = styled.p`
   margin: 0;
 `;
 
-const Space = styled.div`
-  height: 3rem;
-`;
-
 interface Props {
-  interaction: string;
+  message: TransactionNode;
 }

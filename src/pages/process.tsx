@@ -1,5 +1,5 @@
-import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper, Tables } from "../components/Page";
-import { DownloadIcon, ShareIcon } from "@iconicicons/react";
+import { Copy, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper, Tables } from "../components/Page";
+import { DownloadIcon } from "@iconicicons/react";
 import { createDataItemSigner, message, dryrun, result } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import { formatAddress, getTagValue } from "../utils/format";
@@ -24,8 +24,10 @@ import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
 import { GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
-import { GetSchedulerLocation, GetSpawnMessage, GetSpawnedBy, Tag } from "../queries/processes";
+import { GetSchedulerLocation, GetSpawnedBy, Tag } from "../queries/processes";
 import { useApolloClient } from "@apollo/client";
+import EntityLink from "../components/EntityLink";
+import { wellKnownTokens } from "../ao/well_known";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -62,83 +64,14 @@ export const formatTimestamp = (t?: number) => {
   return dayjs(t).fromNow();
 };
 
-const wellKnownTokens = {
-  "7zH9dlMNoxprab9loshv3Y7WG45DOny_Vrq9KrXObdQ": {
-    name: "Ethereum Wrapped USDC",
-    ticker: "wUSDC",
-    denomination: 6n,
-    logo: "VL4_2p40RKvFOQynAMilDQ4lcwjtlK3Ll-xtRhv9GSY"
-  },
-  "7j3jUyFpTuepg_uu_sJnwLE6KiTVuA9cLrkfOp2MFlo": {
-    name: "BSC Wrapped USDT",
-    ticker: "wUSDT",
-    denomination: 18n,
-    logo: "9vHNDNa6gHxhwndjL_SZcKvXzljarHRQxhHb3sgCeME"
-  },
-  "0syT13r0s0tgPmIed95bJnuSqaD29HQNN8D3ElLSrsc": {
-    name: "AO",
-    ticker: "AO",
-    denomination: 12n,
-    logo: "UkS-mdoiG8hcAClhKK8ch4ZhEzla0mCPDOix9hpdSFE"
-  },
-  "xU9zFkq3X2ZQ6olwNVvr1vUWIjc3kXTWr7xKQD6dh10": {
-    name: "Wrapped AR",
-    ticker: "wAR",
-    denomination: 12n,
-    logo: "L99jaxRKQKJt9CqoJtPaieGPEhJD3wNhR4iGqc8amXs"
-  },
-  "cBgS-V_yGhOe9P1wCIuNSgDA_JS8l4sE5iFcPTr0TD0": {
-    name: "Wrapped ETH",
-    ticker: "wETH",
-    denomination: 18n,
-    logo: "RJ0om4TNkNM4nUsWC5KG3VkLf8HWfhsVm3tJBMke1Ws"
-  },
-  "7GoQfmSOct_aUOWKM4xbKGg6DzAmOgdKwg8Kf-CbHm4": {
-    name: "Wander",
-    ticker: "WNDR",
-    denomination: 18n,
-    logo: "xUO2tQglSYsW89aLYN8ErGivZqezoDaEn95JniaCBZk"
-  },
-  "n2MhPK0O3yEvY2zW73sqcmWqDktJxAifJDrri4qireI": {
-    name: "LiquidOps",
-    ticker: "LQD",
-    denomination: 18n,
-    logo: "iI9VnQdPXlVl967iAdCY4zJYVBfk5jpr_qab-Hzm4qI"
-  }
-};
-
-export default function Process({ id }: Props) {
-  const [initTx, setInitTx] = useState<TransactionNode | "loading">("loading");
+export default function Process({ initTx }: Props) {
+  const id = useMemo(() => initTx.id, [initTx]);
   const gateway = useGateway();
   const client = useApolloClient();
 
-  useEffect(() => {
-    (async () => {
-      setInitTx("loading");
-      const res = await client.query({
-        query: GetSpawnMessage,
-        variables: { id }
-      });
-
-      setInitTx(res.data.transactions.edges[0]?.node as TransactionNode);
-    })();
-  }, [id, gateway, client]);
-
-  const tags = useMemo(() => {
-    const tagRecord: { [name: string]: string } = {};
-
-    if (!initTx || initTx == "loading")
-      return tagRecord;
-
-    for (const tag of initTx.tags) {
-      tagRecord[tag.name] = tag.value
-    }
-
-    return tagRecord;
-  }, [initTx]);
+  const tags = useMemo(() => Object.fromEntries(initTx.tags.map(t => [t.name, t.value])), [initTx]);
 
   const owner = useMemo(() => {
-    if (initTx === "loading" || !initTx) return undefined;
     const ownerAddr = tags["From-Process"] || initTx.owner.address;
 
     return {
@@ -151,8 +84,6 @@ export default function Process({ id }: Props) {
 
   useEffect(() => {
     (async () => {
-      if (!initTx || initTx == "loading") return;
-
       const res = await client.query({
         query: GetSchedulerLocation,
         variables: { id: tags.Scheduler }
@@ -739,16 +670,6 @@ export default function Process({ id }: Props) {
     });
   }
 
-  if (!initTx || initTx == "loading") {
-    return (
-      <Wrapper>
-        <NotFound>
-          {(!initTx && "Could not find process") || "Loading..."}
-        </NotFound>
-      </Wrapper>
-    )
-  }
-
   return (
     <Wrapper>
       <ProcessTitle>
@@ -774,23 +695,7 @@ export default function Process({ id }: Props) {
           <tr>
             <td>Owner</td>
             <td>
-              {owner && (
-                (owner.type === "user" && (
-                  <a
-                    href={`https://viewblock.io/arweave/address/${owner.addr}`}
-                    target="_blank"
-                    rel="noopener noreferer"
-                  >
-                    {formatAddress(owner.addr)}
-                    <ShareIcon />
-                  </a>
-                )) || (
-                  <Link to={`#/process/${owner.addr}`}>
-                    {formatAddress(owner.addr)}
-                    <ShareIcon />
-                  </Link>
-                )
-              )}
+              {owner && <EntityLink address={owner?.addr} />}
             </td>
           </tr>
           <tr>
@@ -800,22 +705,22 @@ export default function Process({ id }: Props) {
           <tr>
             <td>Module</td>
             <td>
-              <a href={`https://viewblock.io/arweave/tx/${tags.Module}`} target="_blank" rel="noopener noreferer">
-                {formatAddress(tags["Module"])}
-                <ShareIcon />
-              </a>
+              <EntityLink address={tags.Module} />
             </td>
           </tr>
           <tr>
             <td>Scheduler</td>
             <td>
-              {schedulerURL?.host || ""}
-              {" ("}
-              <a href={`https://viewblock.io/arweave/address/${tags.Scheduler}`} target="_blank" rel="noopener noreferer">
-                {formatAddress(tags.Scheduler, schedulerURL?.host ? 6 : 13)}
-                <ShareIcon />
-              </a>
-              {")"}
+              {(schedulerURL?.host && (
+                <>
+                {schedulerURL.host}
+                  {" ("}
+                  <EntityLink address={tags.Scheduler} />
+                  {")"}
+                </>
+              )) || (
+                <EntityLink address={tags.Scheduler} />
+              )}
             </td>
           </tr>
           <tr>
@@ -975,9 +880,7 @@ export default function Process({ id }: Props) {
               <td></td>
               <td>{i + 1}.</td>
               <td>
-                <Link to={`#/process/${item.addr}`}>
-                  {formatAddress(item.addr)}
-                </Link>
+                <EntityLink address={item.addr} />
               </td>
               <td style={{ display: "flex", alignItems: "center" }}>
                 <span>
@@ -1006,7 +909,7 @@ export default function Process({ id }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/process/${balance.token}`}>
+                  <Link to={`#/${balance.token}`}>
                     {//@ts-expect-error
                       (cachedTokens[balance.token] !== "pending" && cachedTokens[balance.token]?.name) || formatAddress(balance.token)}
                   </Link>
@@ -1059,22 +962,18 @@ export default function Process({ id }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/message/${transfer.id}`}>
+                  <Link to={`#/${transfer.id}`}>
                     {formatAddress(transfer.id)}
                   </Link>
                 </td>
                 <td>
-                  <Link to={`#/process/${transfer.from}`}>
-                    {formatAddress(transfer.from, 8)}
-                  </Link>
+                  <EntityLink address={transfer.from} />
                 </td>
                 <td>
-                  <Link to={`#/process/${transfer.to}`}>
-                    {formatAddress(transfer.to, 8)}
-                  </Link>
+                  <EntityLink address={transfer.to} />
                 </td>
                 <td>
-                  <Link to={`#/process/${transfer.token}`}>
+                  <Link to={`#/${transfer.token}`}>
                     <span style={{ color: transfer.dir === "out" ? "#ff0000" : "#00db5f" }}>
                       {transfer.dir === "out" ? "-" : "+"}
                       {//@ts-expect-error
@@ -1121,7 +1020,7 @@ export default function Process({ id }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/message/${interaction.node.message.id}`}>
+                  <Link to={`#/${interaction.node.message.id}`}>
                     {formatAddress(interaction.node.message.id)}
                   </Link>
                 </td>
@@ -1132,19 +1031,7 @@ export default function Process({ id }: Props) {
                   {(() => {
                     const fromProcess = interaction.node.message.tags.find((t: Tag) => t.name === "From-Process")?.value
 
-                    if (fromProcess) {
-                      return (
-                        <Link to={`#/process/${fromProcess}`}>
-                          {formatAddress(fromProcess)}
-                        </Link>
-                      )
-                    }
-
-                    return (
-                      <a href={`https://viewblock.io/arweave/address/${interaction.node.message.owner.address}`} target="_blank" rel="noopener noreferrer">
-                        {formatAddress(interaction.node.message.owner.address, 8)}
-                      </a>
-                    )
+                    return <EntityLink address={fromProcess || interaction.node.message.owner.address} />;
                   })()}
                 </td>
                 <td>
@@ -1187,7 +1074,7 @@ export default function Process({ id }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/process/${process.id}`}>
+                  <Link to={`#/${process.id}`}>
                     {formatAddress(process.id)}
                   </Link>
                 </td>
@@ -1195,9 +1082,7 @@ export default function Process({ id }: Props) {
                   {process.name}
                 </td>
                 <td>
-                  <a href={`https://viewblock.io/arweave/tx/${process.module}`} target="_blank" rel="noopener noreferrer">
-                    {formatAddress(process.module, 8)}
-                  </a>
+                  <EntityLink address={process.module} />
                 </td>
                 <td>
                   {process.block}
@@ -1235,7 +1120,7 @@ export default function Process({ id }: Props) {
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/message/${interaction.id}`}>
+                  <Link to={`#/${interaction.id}`}>
                     {formatAddress(interaction.id)}
                   </Link>
                 </td>
@@ -1243,9 +1128,7 @@ export default function Process({ id }: Props) {
                   {interaction.action}
                 </td>
                 <td>
-                  <Link to={`#/process/${interaction.target}`}>
-                    {formatAddress(interaction.target)}
-                  </Link>
+                  <EntityLink address={interaction.target} />
                 </td>
                 <td>
                   {interaction.block}
@@ -1313,7 +1196,7 @@ const QueryInput = styled.textarea`
 `;
 
 interface Props {
-  id: string;
+  initTx: TransactionNode;
 }
 
 interface OutgoingInteraction {
@@ -1325,14 +1208,14 @@ interface OutgoingInteraction {
   cursor: string;
 }
 
-const TokenTicker = styled.span`
+export const TokenTicker = styled.span`
   display: flex;
   align-items: center;
   gap: 0.25rem;
   margin-left: .2rem;
 `;
 
-const TokenIcon = styled.img`
+export const TokenIcon = styled.img`
   width: 1.1em;
   height: 1.1em;
   border-radius: 100%;

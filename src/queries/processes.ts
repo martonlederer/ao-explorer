@@ -18,6 +18,7 @@ interface GetAllProcessesType {
         owner: {
           address: string;
         };
+        block: Block;
       };
       cursor: string;
     }[];
@@ -77,6 +78,10 @@ export const GetOwnedProcesses: TypedDocumentNode<GetAllProcessesType, { owner: 
           }
           owner {
             address
+          }
+          block {
+            timestamp
+            height
           }
         }
         cursor
@@ -147,7 +152,7 @@ export const GetSchedulerLocation: TypedDocumentNode<GetSchedulerLocationType, {
   }
 `;
 
-interface GetSpawnedByType {
+export interface GetSpawnedByType {
   transactions: {
     pageInfo: {
       hasNextPage: boolean;
@@ -221,6 +226,60 @@ export const GetSpawnMessage: TypedDocumentNode<GetMessageType, { id: string }> 
             timestamp
           }
         }
+      }
+    }
+  }
+`;
+
+export interface GetProcessesForModuleType {
+  transactions: {
+    pageInfo: {
+      hasNextPage: boolean;
+    };
+    edges: {
+      node: {
+        id: string;
+        tags: Tag[];
+        block?: Block;
+        owner: {
+          address: string;
+        };
+      };
+      cursor: string;
+    }[];
+  };
+}
+
+export const GetProcessesForModule: TypedDocumentNode<GetProcessesForModuleType, { module: string; cursor?: string }> = gql`
+  query GetProcessesForModule ($module: String!, $cursor: String) {
+    transactions(
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+        { name: "Type", values: ["Process"] }
+        { name: "Module", values: [$module] }
+      ],
+      first: 100
+      after: $cursor
+    ) {
+      pageInfo {
+        hasNextPage
+      }
+      edges {
+        node {
+          id
+          tags {
+            name
+            value
+          }
+          block {
+            height
+            timestamp
+          }
+          owner {
+            address
+          }
+        }
+        cursor
       }
     }
   }
