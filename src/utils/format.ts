@@ -9,7 +9,7 @@ export function formatAddress(address: string, count = 8) {
   );
 }
 
-export const isAddress = (addr: string) => /[a-z0-9_-]{43}/i.test(addr);
+export const isAddress = (addr: string) => /^[a-z0-9_-]{43}$/i.test(addr) && addr.length === 43;
 
 export const getTagValue = (tagName: string, tags: Tag[]) => tags.find((t) => t.name === tagName)?.value;
 
