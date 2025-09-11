@@ -7,6 +7,9 @@ export default function Footer() {
         <MenuItem href="https://discord.gg/Jad4v8ykgY" target="_blank">
           Support
         </MenuItem>
+        <MenuItem href="https://forms.gle/JyQn9zV9aYcpXc9b9" target="_blank">
+          Feedback
+        </MenuItem>
         <MenuItem href="https://github.com/martonlederer/ao-explorer" target="_blank">
           Github
         </MenuItem>
