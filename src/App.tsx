@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { CurrentTransactionProvider } from "./components/CurrentTransactionProvider";
 import Entity from "./pages/entity";
 import Block from "./pages/block";
+import Footer from "./components/Footer";
 
 const convertPathToRegexp = (path: string) => {
   let keys: Key[] = [];
@@ -96,6 +97,7 @@ function App() {
                     </Route>
                   </Switch>
                 </Main>
+                <Footer />
               </Router>
             </>
           </MarkedProvider>
