@@ -13,6 +13,7 @@ import { TokenLogo } from "./Page";
 import { useInView } from "react-intersection-observer";
 import { CurrentTransactionContext } from "./CurrentTransactionProvider";
 import { Tag } from "../queries/processes";
+import { CheckIcon, ClipboardIcon } from "@iconicicons/react";
 
 const ario = ARIO.mainnet();
 
@@ -51,17 +52,19 @@ export default function EntityLink({ address, transaction: defaultTransaction, m
       } else {
         // for processes
         const res = await (
-          await fetch(`${su}/processes/${address}`)
+          await fetch(`${su}/${address}?limit=1`)
         ).json();
         if (res.error) return;
 
-        res.id = res.process_id;
-        res.block = {
-          height: parseInt(res.block),
-          timestamp: parseInt(res.timestamp) / 1000
+        const initNode = res.edges[0]?.node;
+        if (!initNode) return;
+
+        initNode.message.block = {
+          height: parseInt(getTagValue("Block-Height", res.assignment.tags as Tag[]) || "0"),
+          timestamp: parseInt(getTagValue("Timestamp", res.assignment.tags as Tag[]) || "0") / 1000
         };
 
-        setFallbackTransaction(res);
+        setFallbackTransaction(initNode.message);
       }
     })();
   }, [defaultTransaction, inView, address, loading, data, messageTargetProcess]);
@@ -122,13 +125,26 @@ export default function EntityLink({ address, transaction: defaultTransaction, m
   const gateway = useGateway();
   const [, setCurrentTx] = useContext(CurrentTransactionContext);
 
+  const [copiedRecently, setCopiedRecently] = useState(false);
+
+  async function copy() {
+    await navigator.clipboard.writeText(address);
+    setCopiedRecently(true);
+    setTimeout(() => setCopiedRecently(false), 1700);
+  }
+
   return (
-    <Wrapper to={"#/" + address} accent={accent} ref={ref} onClick={() => setCurrentTx(transaction)} {...props}>
-      {info.Logo && (
-        <TokenLogo src={`${gateway}/${info.Logo}`} draggable={false} />
-      )}
-      {(idonly && formatAddress(address)) || info.Ticker || info.Name || arnsName || tags.Ticker || tags.Name || formatAddress(address)}
-      {arnsName && !info.Logo && <TokenLogo src="/arns.svg" draggable={false} />}
+    <Wrapper>
+      <LinkWrapper to={"#/" + address} ref={ref} accent={accent} {...props} onClick={() => setCurrentTx(transaction)}>
+        {info.Logo && (
+          <TokenLogo src={`${gateway}/${info.Logo}`} draggable={false} />
+        )}
+        {(idonly && formatAddress(address)) || info.Ticker || info.Name || arnsName || tags.Ticker || tags.Name || formatAddress(address)}
+        {arnsName && !info.Logo && <TokenLogo src="/arns.svg" draggable={false} />}
+      </LinkWrapper>
+      <CopyWrapper>
+        {(!copiedRecently && <Copy onClick={copy} />) || <CheckIcon />}
+      </CopyWrapper>
       <Tooltip>
         {address}
       </Tooltip>
@@ -169,15 +185,36 @@ const Tooltip = styled.span`
   }
 `;
 
-const Wrapper = styled(Link)<{ accent?: boolean }>`
+const CopyWrapper = styled.span`
+  display: flex;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+    color: inherit;
+  }
+`;
+
+const Copy = styled(ClipboardIcon)`
+  cursor: pointer;
+  transition: all .17s ease-in-out;
+
+  &:hover {
+    opacity: .8;
+  }
+
+  &:active {
+    transform: scale(.9);
+  }
+`;
+
+const Wrapper = styled.div`
   position: relative;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: .26rem;
-  color: ${props => props.accent ? "#04ff00" : "inherit"};
+  gap: .4rem;
   width: max-content;
-  transition: .17s ease-in-out;
 
   svg {
     width: 1.05rem;
@@ -185,11 +222,23 @@ const Wrapper = styled(Link)<{ accent?: boolean }>`
     color: inherit;
   }
 
-  &:hover {
-    opacity: .8;
-  }
-
   &:not(:hover) ${Tooltip} {
     display: none;
+  }
+
+  &:not(:hover) ${CopyWrapper} {
+    opacity: 0;
+  }
+`;
+
+const LinkWrapper = styled(Link)<{ accent?: boolean }>`
+  display: flex;
+  align-items: center;
+  color: ${props => props.accent ? "#04ff00" : "inherit"};
+  gap: .26rem;
+  transition: .17s ease-in-out;
+
+  &:hover {
+    opacity: .8;
   }
 `;

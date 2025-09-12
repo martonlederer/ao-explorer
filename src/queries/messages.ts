@@ -207,6 +207,9 @@ export const GetTransfersFor: TypedDocumentNode<GetTransfersForType, { process: 
       edges {
         node {
           id
+          owner {
+            address
+          }
           tags {
             name
             value
