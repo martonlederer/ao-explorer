@@ -330,7 +330,7 @@ export default function Home() {
                   </Link>
                 </td>
                 <td>
-                  {message.block || ""}
+                  {(message.block && <Link to={`#/${message.block}`}>{message.block}</Link>) || ""}
                 </td>
                 <td>
                   {formatTimestamp(message.time)}

@@ -311,7 +311,7 @@ export default function Interaction({ message }: Props) {
               <EntityLink address={msg.recipient} />
             </td>
             <td>
-              {msg.block?.height || "Pending..."}
+              {(msg.block?.height && <Link to={`#/${msg.block.height}`}>{msg.block.height}</Link>) || "Pending..."}
             </td>
             <td>
               {(msg.block?.timestamp && dayjs(msg.block.timestamp * 1000).fromNow()) || "Pending..."}
