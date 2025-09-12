@@ -1057,7 +1057,10 @@ export default function Process({ initTx }: Props) {
                   })()}
                 </td>
                 <td>
-                  {parseInt(getTagValue("Block-Height", interaction.node.assignment.tags) || "0")}
+                  {(() => {
+                    const h = parseInt(getTagValue("Block-Height", interaction.node.assignment.tags) || "0");
+                    return <Link to={`#/${h}`}>{h}</Link>;
+                  })()}
                 </td>
                 <td>
                   {(() => {
@@ -1107,7 +1110,7 @@ export default function Process({ initTx }: Props) {
                   <EntityLink address={process.module} />
                 </td>
                 <td>
-                  {process.block}
+                  <Link to={`#/${process.block}`}>{process.block}</Link>
                 </td>
                 <td>
                   {formatTimestamp(process.timestamp)}
@@ -1153,7 +1156,7 @@ export default function Process({ initTx }: Props) {
                   <EntityLink address={interaction.target} />
                 </td>
                 <td>
-                  {interaction.block}
+                  <Link to={`#/${interaction.block}`}>{interaction.block}</Link>
                 </td>
                 <td>
                   {formatTimestamp(interaction.time && interaction.time * 1000)}

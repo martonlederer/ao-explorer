@@ -455,7 +455,7 @@ export default function Wallet({ address }: Props) {
                   {(tx.target && <EntityLink address={tx.target} />) || "-"}
                 </td>
                 <td>
-                  {tx.block}
+                  {(tx.block && <Link to={`#/${tx.block}`}>{tx.block}</Link>) || "Pending..."}
                 </td>
                 <td>
                   {formatTimestamp(tx.time && tx.time * 1000)}
@@ -503,7 +503,7 @@ export default function Wallet({ address }: Props) {
                   <EntityLink address={tx.owner} />
                 </td>
                 <td>
-                  {tx.block}
+                  {(tx.block && <Link to={`#/${tx.block}`}>{tx.block}</Link>) || "Pending..."}
                 </td>
                 <td>
                   {formatTimestamp(tx.time && tx.time * 1000)}
@@ -551,7 +551,7 @@ export default function Wallet({ address }: Props) {
                   <EntityLink address={process.module} />
                 </td>
                 <td>
-                  {process.block || ""}
+                  {(process.block && <Link to={`#/${process.block}`}>{process.block}</Link>) || ""}
                 </td>
                 <td>
                   {formatTimestamp(process.time && process.time * 1000)}
