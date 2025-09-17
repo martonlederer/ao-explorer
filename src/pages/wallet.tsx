@@ -236,8 +236,8 @@ export default function Wallet({ address }: Props) {
         val.push({
           id: tx.node.id,
           dir,
-          from: dir === "in" ? getTagValue("Sender", tx.node.tags) || "" : address,
-          to: dir === "out" ? getTagValue("Recipient", tx.node.tags) || "" : address,
+          from: getTagValue("Sender", tx.node.tags) || address,
+          to: getTagValue("Recipient", tx.node.tags) || address,
           quantity: getTagValue("Quantity", tx.node.tags) || "0",
           token,
           time: tx.node.block?.timestamp,
