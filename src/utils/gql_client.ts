@@ -12,7 +12,7 @@ export async function setupApollo(persist = false) {
   }
 
   const client = new ApolloClient({
-    uri: "https://arweave-search.goldsky.com/graphql",
+    uri: "https://ao-search-gateway.goldsky.com/graphql",
     cache
   });
 
