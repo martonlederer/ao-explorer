@@ -23,9 +23,9 @@ import { Quantity } from "ao-tokens-lite";
 import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
-import { GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
+import { GetIncomingMessagesCount, GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
 import { GetSchedulerLocation, GetSpawnedBy, Tag } from "../queries/processes";
-import { useApolloClient } from "@apollo/client";
+import { useApolloClient, useQuery } from "@apollo/client";
 import EntityLink from "../components/EntityLink";
 import { wellKnownTokens } from "../ao/well_known";
 
@@ -126,8 +126,17 @@ export default function Process({ initTx }: Props) {
     setHasMoreIncoming(true);
   }, [id]);
 
+  const { data: incomingCountData } = useQuery(GetIncomingMessagesCount, {
+    variables: { process: id }
+  });
+  const incomingCount = useMemo(
+    () => incomingCountData?.transactions?.count,
+    [incomingCountData]
+  );
+
   const [hasMoreOutgoing, setHasMoreOutgoing] = useState(true);
   const [outgoing, setOutgoing] = useState<OutgoingInteraction[]>([]);
+  const [outgoingCount, setOutgoingCount] = useState<string | undefined>();
 
   async function fetchOutgoing() {
     const res = await client.query({
@@ -138,6 +147,7 @@ export default function Process({ initTx }: Props) {
       }
     });
 
+    setOutgoingCount(res.data.transactions.count);
     setHasMoreOutgoing(res.data.transactions.pageInfo.hasNextPage);
     setOutgoing((val) => {
       // manually filter out duplicate transactions
@@ -163,11 +173,13 @@ export default function Process({ initTx }: Props) {
   useEffect(() => {
     setOutgoing([]);
     setHasMoreOutgoing(true);
+    setOutgoingCount(undefined);
     fetchOutgoing();
   }, [id, gateway]);
 
   const [hasMoreSpawns, setHasMoreSpawns] = useState(true);
   const [spawns, setSpawns] = useState<Process[]>([]);
+  const [spawnsCount, setSpawnsCount] = useState<string | undefined>();
 
   async function fetchSpawns() {
     const res = await client.query({
@@ -178,6 +190,7 @@ export default function Process({ initTx }: Props) {
       }
     });
 
+    setSpawnsCount(res.data.transactions.count);
     setHasMoreSpawns(res.data.transactions.pageInfo.hasNextPage);
     setSpawns((val) => {
       for (const tx of res.data.transactions.edges) {
@@ -199,12 +212,14 @@ export default function Process({ initTx }: Props) {
   useEffect(() => {
     setSpawns([]);
     setHasMoreSpawns(true);
+    setSpawnsCount(undefined);
     fetchSpawns();
   }, [id, gateway]);
 
   const [cachedTokens, setCachedTokens] = useState<Record<string, { name: string; ticker: string; denomination: bigint; logo: string; } | "pending">>(wellKnownTokens);
   const [transfers, setTransfers] = useState<{ id: string; dir: "in" | "out"; from: string; to: string; quantity: string; token: string; time?: number; cursor: string; }[]>([]);
   const [hasMoreTransfers, setHasMoreTransfers] = useState(true);
+  const [transfersCount, setTransfersCount] = useState<string | undefined>();
 
   async function fetchTransfers() {
     const res = await client.query({
@@ -215,6 +230,7 @@ export default function Process({ initTx }: Props) {
       }
     });
 
+    setTransfersCount(res.data.transactions.count);
     setHasMoreTransfers(res.data.transactions.pageInfo.hasNextPage);
     setTransfers((val) => {
       for (const tx of res.data.transactions.edges) {
@@ -268,6 +284,7 @@ export default function Process({ initTx }: Props) {
   useEffect(() => {
     setTransfers([]);
     setHasMoreTransfers(true);
+    setTransfersCount(undefined);
     fetchTransfers();
   }, [id, gateway]);
 
@@ -334,7 +351,7 @@ export default function Process({ initTx }: Props) {
 
       setTokenBalances((val) => {
         for (const balRes of res) {
-          if (!balRes || !!val.find((t) => t.token === balRes.token)) continue;
+          if (!balRes?.messages || !!val.find((t) => t.token === balRes.token)) continue;
           const balanceMsg: Message = balRes.messages.find(
             (msg: Message) => !!getTagValue("Balance", msg.Tags)
           );
@@ -773,18 +790,33 @@ export default function Process({ initTx }: Props) {
             onClick={() => setInteractionsMode("incoming")}
           >
             Incoming
+            {incomingCount && (
+              <InteractionsCount>
+                {incomingCount}
+              </InteractionsCount>
+            )}
           </InteractionsMenuItem>
           <InteractionsMenuItem
             active={interactionsMode === "outgoing"}
             onClick={() => setInteractionsMode("outgoing")}
           >
             Outgoing
+            {outgoingCount && (
+              <InteractionsCount>
+                {outgoingCount}
+              </InteractionsCount>
+            )}
           </InteractionsMenuItem>
           <InteractionsMenuItem
             active={interactionsMode === "spawns"}
             onClick={() => setInteractionsMode("spawns")}
           >
             Spawns
+            {spawnsCount && (
+              <InteractionsCount>
+                {spawnsCount}
+              </InteractionsCount>
+            )}
           </InteractionsMenuItem>
           <InteractionsMenuItem
             active={interactionsMode === "evals"}
@@ -797,6 +829,11 @@ export default function Process({ initTx }: Props) {
             onClick={() => setInteractionsMode("transfers")}
           >
             Transfers
+            {transfersCount && (
+              <InteractionsCount>
+                {transfersCount}
+              </InteractionsCount>
+            )}
           </InteractionsMenuItem>
           <InteractionsMenuItem
             active={interactionsMode === "balances"}
@@ -810,6 +847,9 @@ export default function Process({ initTx }: Props) {
               onClick={() => setInteractionsMode("holders")}
             >
               Holders
+              <InteractionsCount>
+                {holders.filter(h => h.balance > 0n).length}
+              </InteractionsCount>
             </InteractionsMenuItem>
           )}
         </InteractionsWrapper>
@@ -1185,7 +1225,20 @@ export const InteractionsWrapper = styled.div`
   gap: 1rem;
 `;
 
+export const InteractionsCount = styled.span`
+  font-size: .7em;
+  line-height: 1em;
+  text-align: center;
+  padding: .4em .6em;
+  border-radius: 10px;
+  color: inherit;
+  transition: all .15s ease-in-out;
+`;
+
 export const InteractionsMenuItem = styled.p<{ active?: boolean; }>`
+  display: flex;
+  align-items: center;
+  gap: .4rem;
   font-size: .94rem;
   color: ${props => props.active ? "#04ff00" : "rgba(255, 255, 255, .7)"};
   padding: .75rem .85rem;
@@ -1194,6 +1247,10 @@ export const InteractionsMenuItem = styled.p<{ active?: boolean; }>`
   font-weight: 400;
   border-bottom: 2px solid ${props => props.active ? "#04ff00" : "transparent"};
   transition: all .15s ease-in-out;
+
+  ${InteractionsCount} {
+    background-color: rgba(${props => props.active ? "4, 255, 0, .18" : "255, 255, 255, .1"});
+  }
 `;
 
 // @ts-expect-error

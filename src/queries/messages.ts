@@ -102,7 +102,13 @@ export const GetMessage: TypedDocumentNode<GetMessageType, { id: string }> = gql
   }
 `;
 
-export const GetLinkedMessages: TypedDocumentNode<GetMessageType, { pushedFor: string }> = gql`
+export interface GetMessageWithCountType extends GetMessageType {
+  transactions: GetMessageType["transactions"] & {
+    count: string;
+  };
+}
+
+export const GetLinkedMessages: TypedDocumentNode<GetMessageWithCountType, { pushedFor: string }> = gql`
   query GetLinkedMessages ($pushedFor: String!) {
     transactions(
       tags: [
@@ -112,6 +118,7 @@ export const GetLinkedMessages: TypedDocumentNode<GetMessageType, { pushedFor: s
       ],
       first: 100
     ) {
+      count
       edges {
         node {
           id
@@ -133,11 +140,31 @@ export const GetLinkedMessages: TypedDocumentNode<GetMessageType, { pushedFor: s
   }
 `;
 
+interface GetIncomingMessagesCountType {
+  transactions: {
+    count: string;
+  };
+}
+
+export const GetIncomingMessagesCount: TypedDocumentNode<GetIncomingMessagesCountType, { process: string; }> = gql`
+  query GetIncomingMessagesCount ($process: String!) {
+    transactions(
+      recipients: [$process]
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+      ],
+    ) {
+      count
+    }
+  }
+`;
+
 interface GetOutgoingMessagesType {
   transactions: {
     pageInfo: {
       hasNextPage: boolean;
     };
+    count: string;
     edges: {
       node: Omit<TransactionNode, "owner">;
       cursor: string;
@@ -158,6 +185,7 @@ export const GetOutgoingMessages: TypedDocumentNode<GetOutgoingMessagesType, { p
       pageInfo {
         hasNextPage
       }
+      count
       edges {
         node {
           id
@@ -182,6 +210,7 @@ interface GetTransfersForType {
     pageInfo: {
       hasNextPage: boolean;
     };
+    count: string;
     edges: {
       node: Omit<TransactionNode, "recipient">;
       cursor: string;
@@ -204,6 +233,7 @@ export const GetTransfersFor: TypedDocumentNode<GetTransfersForType, { process: 
       pageInfo {
         hasNextPage
       }
+      count
       edges {
         node {
           id

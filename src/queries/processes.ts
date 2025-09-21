@@ -55,7 +55,13 @@ export const GetAllProcesses: TypedDocumentNode<GetAllProcessesType, { cursor?: 
   }
 `;
 
-export const GetOwnedProcesses: TypedDocumentNode<GetAllProcessesType, { owner: string; cursor?: string }> = gql`
+interface GetOwnedProcessesType extends GetAllProcessesType {
+  transactions: GetAllProcessesType["transactions"] & {
+    count: string;
+  };
+}
+
+export const GetOwnedProcesses: TypedDocumentNode<GetOwnedProcessesType, { owner: string; cursor?: string }> = gql`
   query GetOwnedProcesses ($owner: String!, $cursor: String) {
     transactions(
       owners: [$owner]
@@ -69,6 +75,7 @@ export const GetOwnedProcesses: TypedDocumentNode<GetAllProcessesType, { owner: 
       pageInfo {
         hasNextPage
       }
+      count
       edges {
         node {
           id
@@ -157,6 +164,7 @@ export interface GetSpawnedByType {
     pageInfo: {
       hasNextPage: boolean;
     };
+    count: string;
     edges: {
       node: {
         id: string;
@@ -182,6 +190,7 @@ export const GetSpawnedBy: TypedDocumentNode<GetSpawnedByType, { process: string
       pageInfo {
         hasNextPage
       }
+      count
       edges {
         node {
           id
@@ -236,6 +245,7 @@ export interface GetProcessesForModuleType {
     pageInfo: {
       hasNextPage: boolean;
     };
+    count: string;
     edges: {
       node: {
         id: string;
@@ -264,6 +274,7 @@ export const GetProcessesForModule: TypedDocumentNode<GetProcessesForModuleType,
       pageInfo {
         hasNextPage
       }
+      count
       edges {
         node {
           id
