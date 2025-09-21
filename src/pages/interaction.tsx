@@ -65,6 +65,12 @@ export default function Interaction({ message }: Props) {
         process
       });
 
+      for (const message of resultData.Messages as Message[]) {
+        try {
+          message.Data = JSON.parse(message.Data);
+        } catch {}
+      }
+
       setRes(resultData);
     })();
   }, [process, message]);
