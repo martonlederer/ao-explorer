@@ -12,6 +12,7 @@ import { useGateway } from "../utils/hooks";
 import { TokenLogo } from "./Page";
 import { useInView } from "react-intersection-observer";
 import { CurrentTransactionContext } from "./CurrentTransactionProvider";
+import { CheckIcon, ClipboardIcon } from "@iconicicons/react";
 
 const ario = ARIO.mainnet();
 
@@ -81,13 +82,26 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
   const gateway = useGateway();
   const [, setCurrentTx] = useContext(CurrentTransactionContext);
 
+  const [copiedRecently, setCopiedRecently] = useState(false);
+
+  async function copy() {
+    await navigator.clipboard.writeText(address);
+    setCopiedRecently(true);
+    setTimeout(() => setCopiedRecently(false), 1700);
+  }
+
   return (
-    <Wrapper to={"#/" + address} accent={accent} ref={ref} onClick={() => setCurrentTx(transaction)} {...props}>
-      {info.Logo && (
-        <TokenLogo src={`${gateway}/${info.Logo}`} draggable={false} />
-      )}
-      {(idonly && formatAddress(address)) || info.Ticker || info.Name || arnsName || tags.Ticker || tags.Name || formatAddress(address)}
-      {arnsName && !info.Logo && <TokenLogo src="/arns.svg" draggable={false} />}
+    <Wrapper>
+      <LinkWrapper to={"#/" + address} ref={ref} accent={accent} {...props} onClick={() => setCurrentTx(transaction)}>
+        {info.Logo && (
+          <TokenLogo src={`${gateway}/${info.Logo}`} draggable={false} />
+        )}
+        {(idonly && formatAddress(address)) || info.Ticker || info.Name || arnsName || tags.Ticker || tags.Name || formatAddress(address)}
+        {arnsName && !info.Logo && <TokenLogo src="/arns.svg" draggable={false} />}
+      </LinkWrapper>
+      <CopyWrapper>
+        {(!copiedRecently && <Copy onClick={copy} />) || <CheckIcon />}
+      </CopyWrapper>
       <Tooltip>
         {address}
       </Tooltip>
@@ -101,6 +115,29 @@ interface Props {
   accent?: boolean;
   idonly?: boolean;
 }
+
+const CopyWrapper = styled.span`
+  display: flex;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+    color: inherit;
+  }
+`;
+
+const Copy = styled(ClipboardIcon)`
+  cursor: pointer;
+  transition: all .17s ease-in-out;
+
+  &:hover {
+    opacity: .8;
+  }
+
+  &:active {
+    transform: scale(.9);
+  }
+`;
 
 const Tooltip = styled.span`
   position: absolute;
@@ -127,12 +164,12 @@ const Tooltip = styled.span`
   }
 `;
 
-const Wrapper = styled(Link)<{ accent?: boolean }>`
+const Wrapper = styled.div<{ accent?: boolean }>`
   position: relative;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: .26rem;
+  gap: .4rem;
   color: ${props => props.accent ? "#04ff00" : "inherit"};
   width: max-content;
   transition: .17s ease-in-out;
@@ -140,14 +177,26 @@ const Wrapper = styled(Link)<{ accent?: boolean }>`
   svg {
     width: 1.05rem;
     height: 1.05rem;
-    color: inherit;
-  }
-
-  &:hover {
-    opacity: .8;
+    color: ${props => props.accent ? "#04ff00" : "inherit"};
   }
 
   &:not(:hover) ${Tooltip} {
     display: none;
+  }
+
+  &:not(:hover) ${CopyWrapper} {
+    opacity: 0;
+  }
+`;
+
+const LinkWrapper = styled(Link)<{ accent?: boolean }>`
+  display: flex;
+  align-items: center;
+  color: ${props => props.accent ? "#04ff00" : "inherit"};
+  gap: .26rem;
+  transition: .17s ease-in-out;
+
+  &:hover {
+    opacity: .8;
   }
 `;
