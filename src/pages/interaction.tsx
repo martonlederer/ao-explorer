@@ -1,6 +1,6 @@
 import { LinkedMessageData, getLinkedMessages, useMessageGraph, useProcessGraph } from "../utils/message_graph";
 import { Copy, ProcessID, ProcessName, ProcessTitle, Space, Tables, Wrapper } from "../components/Page";
-import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
+import { InteractionsCount, InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
 import { TransactionNode } from "../queries/messages";
 import { formatAddress, formatJSONOrString, getTagValue } from "../utils/format";
 import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
@@ -274,12 +274,20 @@ export default function Interaction({ message }: Props) {
             onClick={() => setMessagesMode("resulting")}
           >
             Resulting messages
+            {typeof res?.Messages?.length !== "undefined" && (
+              <InteractionsCount>
+                {res.Messages.length}
+              </InteractionsCount>
+            )}
           </InteractionsMenuItem>
           <InteractionsMenuItem
             active={messagesMode === "linked"}
             onClick={() => setMessagesMode("linked")}
           >
             Linked messages
+            <InteractionsCount>
+              {linkedMessages.length}
+            </InteractionsCount>
           </InteractionsMenuItem>
         </InteractionsWrapper>
       </InteractionsMenu>
