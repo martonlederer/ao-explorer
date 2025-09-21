@@ -23,7 +23,7 @@ import { Quantity } from "ao-tokens-lite";
 import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
-import { GetIncomingMessagesCount, GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
+import { GetEvalMessages, GetIncomingMessagesCount, GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
 import { GetSchedulerLocation, GetSpawnedBy, Tag } from "../queries/processes";
 import { useApolloClient, useQuery } from "@apollo/client";
 import EntityLink from "../components/EntityLink";
@@ -41,6 +41,15 @@ interface Process {
   module: string;
   block: number;
   timestamp: number;
+  cursor: string;
+}
+
+interface Eval {
+  id: string;
+  from: string;
+  action: string;
+  block: number;
+  time?: number;
   cursor: string;
 }
 
@@ -214,6 +223,49 @@ export default function Process({ initTx }: Props) {
     setHasMoreSpawns(true);
     setSpawnsCount(undefined);
     fetchSpawns();
+  }, [id, gateway]);
+
+  const [hasMoreEvals, setHasMoreEvals] = useState(true);
+  const [evals, setEvals] = useState<Eval[]>([]);
+  const [evalsCount, setEvalsCount] = useState<string | undefined>();
+
+  async function fetchEvals() {
+    const res = await client.query({
+      query: GetEvalMessages,
+      variables: {
+        process: id,
+        cursor: evals[evals.length - 1]?.cursor
+      }
+    });
+
+    setEvalsCount(res.data.transactions.count);
+    setHasMoreEvals(res.data.transactions.pageInfo.hasNextPage);
+    setEvals((val) => {
+      // manually filter out duplicate transactions
+      // for some reason, the ar.io nodes return the
+      // same transaction multiple times for certain
+      // queries
+      for (const tx of res.data.transactions.edges) {
+        if (val.find((t) => t.id === tx.node.id)) continue;
+        val.push({
+          id: tx.node.id,
+          from: getTagValue("From-Process", tx.node.tags) || tx.node.owner.address,
+          action: "Eval",
+          block: tx.node.block?.height || 0,
+          time: tx.node.block?.timestamp,
+          cursor: tx.cursor
+        });
+      }
+
+      return val;
+    });
+  }
+
+  useEffect(() => {
+    setEvals([]);
+    setHasMoreEvals(true);
+    setEvalsCount(undefined);
+    fetchEvals();
   }, [id, gateway]);
 
   const [cachedTokens, setCachedTokens] = useState<Record<string, { name: string; ticker: string; denomination: bigint; logo: string; } | "pending">>(wellKnownTokens);
@@ -823,6 +875,11 @@ export default function Process({ initTx }: Props) {
             onClick={() => setInteractionsMode("evals")}
           >
             Evals
+            {evalsCount && (
+              <InteractionsCount>
+                {evalsCount}
+              </InteractionsCount>
+            )}
           </InteractionsMenuItem>
           <InteractionsMenuItem
             active={interactionsMode === "transfers"}
@@ -1057,7 +1114,7 @@ export default function Process({ initTx }: Props) {
           </Table>
         </InfiniteScroll>
       )}
-      {(interactionsMode === "incoming" || interactionsMode === "evals") && (
+      {interactionsMode === "incoming" && (
         <InfiniteScroll
           dataLength={incoming.length}
           next={fetchIncoming}
@@ -1078,7 +1135,7 @@ export default function Process({ initTx }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {incoming && incoming.map((interaction: any, i) => (interactionsMode !== "evals" || getTagValue("Action", interaction.node.message.tags) === "Eval") && (
+            {incoming && incoming.map((interaction: any, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
@@ -1206,6 +1263,52 @@ export default function Process({ initTx }: Props) {
           </Table>
         </InfiniteScroll>
       )}
+      {interactionsMode === "evals" && (
+        <InfiniteScroll
+          dataLength={evals.length}
+          next={fetchEvals}
+          hasMore={hasMoreEvals}
+          loader={<LoadingStatus>Loading...</LoadingStatus>}
+          endMessage={
+            <LoadingStatus>
+              You've reached the end...
+            </LoadingStatus>
+          }
+        >
+          <Table>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Action</th>
+              <th>From</th>
+              <th>Block</th>
+              <th>Time</th>
+            </tr>
+            {evals.map((interaction, i) => (
+              <tr key={i}>
+                <td></td>
+                <td>
+                  <Link to={`#/${interaction.id}`}>
+                    {formatAddress(interaction.id)}
+                  </Link>
+                </td>
+                <td>
+                  {interaction.action}
+                </td>
+                <td>
+                  <EntityLink address={interaction.from} />
+                </td>
+                <td>
+                  <Link to={`#/${interaction.block}`}>{interaction.block}</Link>
+                </td>
+                <td>
+                  {formatTimestamp(interaction.time && interaction.time * 1000)}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </InfiniteScroll>
+      )}
     </Wrapper>
   );
 }
@@ -1232,7 +1335,6 @@ export const InteractionsCount = styled.span`
   padding: .4em .6em;
   border-radius: 10px;
   color: inherit;
-  transition: all .15s ease-in-out;
 `;
 
 export const InteractionsMenuItem = styled.p<{ active?: boolean; }>`

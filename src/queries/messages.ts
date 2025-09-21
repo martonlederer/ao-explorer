@@ -159,6 +159,48 @@ export const GetIncomingMessagesCount: TypedDocumentNode<GetIncomingMessagesCoun
   }
 `;
 
+interface GetEvalMessagesType extends GetAllMessagesType {
+  transactions: GetAllMessagesType["transactions"] & {
+    count: string;
+  };
+}
+
+export const GetEvalMessages: TypedDocumentNode<GetEvalMessagesType, { process: string; cursor?: string }> = gql`
+  query GetEvalMessages ($process: String!, $cursor: String) {
+    transactions(
+      recipients: [$process]
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+        { name: "Action", values: ["Eval"] }
+      ],
+      first: 100
+      after: $cursor
+    ) {
+      pageInfo {
+        hasNextPage
+      }
+      count
+      edges {
+        node {
+          id
+          tags {
+            name
+            value
+          }
+          owner {
+            address
+          }
+          block {
+            height
+            timestamp
+          }
+        }
+        cursor
+      }
+    }
+  }
+`;
+
 interface GetOutgoingMessagesType {
   transactions: {
     pageInfo: {
