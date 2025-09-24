@@ -10,8 +10,6 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { useApolloClient } from "@apollo/client";
 import { Editor } from "@monaco-editor/react";
 import { result } from "@permaweb/aoconnect";
-import { useGateway } from "../utils/hooks";
-import { Tag } from "../queries/processes";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import { LoadingStatus } from "./index";
@@ -21,15 +19,10 @@ import { Graph, GraphNode, GraphLink, GraphConfiguration } from "react-d3-graph"
 import { useLocation } from "wouter";
 import { useResizeDetector } from "react-resize-detector";
 import EntityLink from "../components/EntityLink";
+import { Message, Tag } from "../ao/types";
+import useGateway from "../hooks/useGateway";
 
 dayjs.extend(relativeTime);
-
-export interface Message {
-  Anchor: string;
-  Tags: Tag[];
-  Target: string;
-  Data: string;
-}
 
 export default function Interaction({ message }: Props) {
   const gateway = useGateway();

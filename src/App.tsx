@@ -5,7 +5,7 @@ import { ArweaveWalletKit } from "@arweave-wallet-kit/react";
 import { pathToRegexp, Key } from "path-to-regexp";
 import { Router, Route, Switch, Redirect } from "wouter";
 import makeCachedMatcher from "wouter/matcher";
-import { useGateway } from "./utils/hooks";
+import useGateway from "./hooks/useGateway";
 import useHashLocation from "./utils/hash";
 import { styled } from "@linaria/react";
 import { css } from "@linaria/core";
@@ -19,6 +19,7 @@ import { CurrentTransactionProvider } from "./components/CurrentTransactionProvi
 import Entity from "./pages/entity";
 import Block from "./pages/block";
 import Footer from "./components/Footer";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const convertPathToRegexp = (path: string) => {
   let keys: Key[] = [];
@@ -28,6 +29,7 @@ const convertPathToRegexp = (path: string) => {
 };
 
 const customMatcher = makeCachedMatcher(convertPathToRegexp);
+const queryClient = new QueryClient();
 
 function App() {
   const gateway = useGateway();
@@ -70,39 +72,41 @@ function App() {
         }
       }}
     >
-      <ApolloProvider client={apolloClient}>
-        <CurrentTransactionProvider>
-          <MarkedProvider>
-            <>
-              <BgBlur />
-              <Router hook={useHashLocation} matcher={customMatcher}>
-                <Nav />
-                <Main>
-                  <Switch>
-                    <Route path="/" component={Home} />
-                    <Route path="/:id([a-zA-Z0-9_-]{43})">
-                      {(props) => <Entity id={props.id} />}
-                    </Route>
-                    <Route path="/:height([0-9]+)">
-                      {(props) => <Block height={props.height} />}
-                    </Route>
-                    <Route path="/message/:message">
-                      {(props) => <Redirect to={`/${props.message}`} />}
-                    </Route>
-                    <Route path="/process/:id">
-                      {(props) => <Redirect to={`/${props.id}`} />}
-                    </Route>
-                    <Route path="/process/:id/:message">
-                      {(props) => <Redirect to={`/${props.message}`} />}
-                    </Route>
-                  </Switch>
-                </Main>
-                <Footer />
-              </Router>
-            </>
-          </MarkedProvider>
-        </CurrentTransactionProvider>
-      </ApolloProvider>
+      <QueryClientProvider client={queryClient}>
+        <ApolloProvider client={apolloClient}>
+          <CurrentTransactionProvider>
+            <MarkedProvider>
+              <>
+                <BgBlur />
+                <Router hook={useHashLocation} matcher={customMatcher}>
+                  <Nav />
+                  <Main>
+                    <Switch>
+                      <Route path="/" component={Home} />
+                      <Route path="/:id([a-zA-Z0-9_-]{43})">
+                        {(props) => <Entity id={props.id} />}
+                      </Route>
+                      <Route path="/:height([0-9]+)">
+                        {(props) => <Block height={props.height} />}
+                      </Route>
+                      <Route path="/message/:message">
+                        {(props) => <Redirect to={`/${props.message}`} />}
+                      </Route>
+                      <Route path="/process/:id">
+                        {(props) => <Redirect to={`/${props.id}`} />}
+                      </Route>
+                      <Route path="/process/:id/:message">
+                        {(props) => <Redirect to={`/${props.message}`} />}
+                      </Route>
+                    </Switch>
+                  </Main>
+                  <Footer />
+                </Router>
+              </>
+            </MarkedProvider>
+          </CurrentTransactionProvider>
+        </ApolloProvider>
+      </QueryClientProvider>
     </ArweaveWalletKit>
   );
 }

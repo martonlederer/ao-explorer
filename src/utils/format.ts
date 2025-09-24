@@ -1,5 +1,5 @@
 import { Quantity } from "ao-tokens-lite";
-import { Tag } from "../queries/processes";
+import { Tag } from "../ao/types";
 
 export function formatAddress(address: string, count = 8) {
   return (
@@ -44,4 +44,9 @@ export function formatTokenQuantity(val: Quantity) {
 
   // @ts-expect-error
   return val.toLocaleString(undefined, { maximumFractionDigits });
+}
+
+export function tagsToRecord(tags?: Tag[]): Record<string, string> {
+  if (!tags) return {};
+  return Object.fromEntries(tags.map(t => [t.name, t.value]));
 }

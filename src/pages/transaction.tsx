@@ -10,7 +10,6 @@ import { FullTransactionNode, GetTransactionsInBundle } from "../queries/base";
 import { formatAddress, formatJSONOrString, formatQuantity, getTagValue } from "../utils/format";
 import { Link } from "wouter";
 import prettyBytes from "pretty-bytes";
-import { useGateway } from "../utils/hooks";
 import { QueryTab, formatTimestamp } from "./process";
 import { Editor } from "@monaco-editor/react";
 import InfiniteScroll from "react-infinite-scroll-component";
@@ -18,6 +17,7 @@ import { LoadingStatus } from ".";
 import { useApolloClient } from "@apollo/client";
 import { TransactionListItem } from "./wallet";
 import { GetProcessesForModule } from "../queries/processes";
+import useGateway from "../hooks/useGateway";
 
 dayjs.extend(relativeTime);
 

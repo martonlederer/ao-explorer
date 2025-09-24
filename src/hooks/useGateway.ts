@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
  * Use the gateway the explorer is requested from.
  * Use g8way.io locally
  */
-export function useGateway() {
+export default function useGateway() {
   const DEFAULT_GATEWAY = "https://arweave.net"
   const [gateway, setGateway] = useState(DEFAULT_GATEWAY);
 

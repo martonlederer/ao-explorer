@@ -1,10 +1,6 @@
 import { gql, TypedDocumentNode } from "@apollo/client";
 import { Block, GetMessageType } from "./messages";
-
-export interface Tag {
-  name: string;
-  value: string;
-}
+import { Tag } from "../ao/types";
 
 interface GetAllProcessesType {
   transactions: {

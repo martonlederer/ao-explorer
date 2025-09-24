@@ -1,20 +1,16 @@
 import { styled } from "@linaria/react";
-import { HTMLProps, useContext, useEffect, useMemo, useState } from "react";
+import { HTMLProps, useContext, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@apollo/client";
-import { formatAddress } from "../utils/format";
+import { formatAddress, getTagValue, tagsToRecord } from "../utils/format";
 import { FullTransactionNode, GetTransaction } from "../queries/base";
-// @ts-expect-error
-import { ARIO } from "@ar.io/sdk/web";
-import { dryrun } from "@permaweb/aoconnect";
-import { Message } from "../pages/interaction";
-import { useGateway } from "../utils/hooks";
 import { TokenLogo } from "./Page";
 import { useInView } from "react-intersection-observer";
 import { CurrentTransactionContext } from "./CurrentTransactionProvider";
 import { CheckIcon, ClipboardIcon } from "@iconicicons/react";
-
-const ario = ARIO.mainnet();
+import usePrimaryName from "../hooks/usePrimaryName";
+import useInfo from "../hooks/useInfo";
+import useGateway from "../hooks/useGateway";
 
 export default function EntityLink({ address, transaction: defaultTransaction, accent, idonly, ...props }: HTMLProps<HTMLAnchorElement> & Props) {
   const { ref, inView } = useInView({
@@ -27,57 +23,31 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
     skip: !!defaultTransaction || !inView
   });
   const transaction = useMemo(
-    () => defaultTransaction || data?.transactions?.edges?.[0]?.node,
-    [defaultTransaction, data]
+    () => {
+      if (loading) return undefined;
+      return defaultTransaction || data?.transactions?.edges?.[0]?.node
+    },
+    [defaultTransaction, data, loading]
   );
 
   const tags = useMemo(
-    () => {
-      if (loading || !transaction) return {};
-      return Object.fromEntries(transaction.tags.map(t => [t.name, t.value]));
-    },
-    [loading, transaction]
+    () => tagsToRecord(transaction?.tags),
+    [transaction]
   );
 
-  const [arnsName, setArnsName] = useState<string | undefined>();
+  const { data: arnsName, isEnabled: isArnsEnabled } = usePrimaryName(
+    address,
+    inView && !defaultTransaction && !tags.Type && !idonly
+  );
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setArnsName(undefined);
-
-        if (!inView || defaultTransaction || !!tags.Type || idonly) return;
-
-        const res = await ario.getPrimaryName({ address });
-        setArnsName(res?.name);
-      } catch {}
-    })();
-  }, [address, defaultTransaction, inView, tags, idonly]);
-
-  const [info, setInfo] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    (async () => {
-      setInfo({});
-
-      if (idonly || defaultTransaction && defaultTransaction.tags.find(t => t.name === "Type")?.value !== "Process" || !inView) {
-        return;
-      }
-
-      const res = await dryrun({
-        process: address,
-        tags: [{ name: "Action", value: "Info" }]
-      });
-
-      const infoRes: Message | undefined = res.Messages.find(
-        (msg: Message) => typeof msg.Tags.find((t) => t.name === "Name")?.value !== "undefined"
-      );
-
-      if (!infoRes) return;
-
-      setInfo(Object.fromEntries(infoRes.Tags.map(t => [t.name, t.value])))
-    })();
-  }, [address, defaultTransaction, inView, idonly]);
+  const { data: infoMessage, isEnabled: isInfoEnabled } = useInfo(
+    address,
+    !idonly && inView && (!defaultTransaction || getTagValue("Type", defaultTransaction.tags) !== "Process")
+  );
+  const info = useMemo(
+    () => isInfoEnabled && infoMessage?.Tags || {},
+    [infoMessage, isInfoEnabled]
+  );
 
   const gateway = useGateway();
   const [, setCurrentTx] = useContext(CurrentTransactionContext);
@@ -90,14 +60,31 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
     setTimeout(() => setCopiedRecently(false), 1700);
   }
 
+  const display = useMemo(
+    () => {
+      const shortenAddress = formatAddress(address);
+
+      if (idonly) return shortenAddress;
+      if (info.Ticker || info.Name) {
+        return info.Ticker || info.Name;
+      }
+      if (isArnsEnabled) return arnsName;
+
+      return tags.Ticker || tags.Name || shortenAddress;
+    },
+    [address, idonly, info, isArnsEnabled, arnsName, tags]
+  );
+
   return (
     <Wrapper>
       <LinkWrapper to={"#/" + address} ref={ref} accent={accent} {...props} onClick={() => setCurrentTx(transaction)}>
         {info.Logo && (
           <TokenLogo src={`${gateway}/${info.Logo}`} draggable={false} />
         )}
-        {(idonly && formatAddress(address)) || info.Ticker || info.Name || arnsName || tags.Ticker || tags.Name || formatAddress(address)}
-        {arnsName && !info.Logo && <TokenLogo src="/arns.svg" draggable={false} />}
+        {display}
+        {arnsName && isArnsEnabled && !info.Logo && (
+          <TokenLogo src="/arns.svg" draggable={false} />
+        )}
       </LinkWrapper>
       <CopyWrapper>
         {(!copiedRecently && <Copy onClick={copy} />) || <CheckIcon />}

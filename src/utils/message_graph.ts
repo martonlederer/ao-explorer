@@ -2,10 +2,10 @@ import { result } from "@permaweb/aoconnect";
 import { GetLinkedMessages, GetMessage, TransactionNode } from "../queries/messages";
 import { getTagValue } from "./format";
 import { ApolloClient } from "@apollo/client";
-import { Message } from "../pages/interaction";
 import { GraphNode, GraphLink, GraphData } from "react-d3-graph";
 import { useEffect, useMemo, useState } from "react";
 import dagre from "dagre";
+import { Message } from "../ao/types";
 
 export interface LinkedMessageData {
   originalMessage: TransactionNode;

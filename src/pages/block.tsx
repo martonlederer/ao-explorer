@@ -4,7 +4,6 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { Block as BlockInterface, GetTransactionsForBlock } from "../queries/base";
-import { useGateway } from "../utils/hooks";
 import EntityLink from "../components/EntityLink";
 import prettyBytes from "pretty-bytes";
 import { formatTokenQuantity } from "../utils/format";
@@ -15,6 +14,7 @@ import { LoadingStatus } from ".";
 import { formatTimestamp } from "./process";
 import { TransactionListItem } from "./wallet";
 import { useApolloClient } from "@apollo/client";
+import useGateway from "../hooks/useGateway";
 
 dayjs.extend(relativeTime);
 

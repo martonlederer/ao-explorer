@@ -1,5 +1,5 @@
 import { gql, TypedDocumentNode } from "@apollo/client";
-import { Tag } from "./processes";
+import { Tag } from "../ao/types";
 
 export interface Block {
   height: number;

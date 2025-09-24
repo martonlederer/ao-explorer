@@ -1,12 +1,11 @@
 import { Copy, ProcessID, ProcessName, ProcessTitle, Space, Tables, TokenLogo, Wrapper } from "../components/Page";
 import { useEffect, useState } from "react";
-import { useGateway } from "../utils/hooks";
 import { Quantity } from "ao-tokens-lite";
 import Table, { TransactionType } from "../components/Table";
 // @ts-expect-error
 import { ARIO } from "@ar.io/sdk/web";
 import { dryrun } from "@permaweb/aoconnect";
-import { GetOwnedProcesses, Tag } from "../queries/processes";
+import { GetOwnedProcesses } from "../queries/processes";
 import { styled } from "@linaria/react";
 import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, TokenIcon, TokenTicker, formatTimestamp } from "./process";
 import { useApolloClient } from "@apollo/client";
@@ -18,7 +17,8 @@ import { formatAddress, formatQuantity, getTagValue } from "../utils/format";
 import EntityLink from "../components/EntityLink";
 import { wellKnownTokens } from "../ao/well_known";
 import { GetTransfersFor, TransactionNode } from "../queries/messages";
-import { Message } from "./interaction";
+import { Message, Tag } from "../ao/types";
+import useGateway from "../hooks/useGateway";
 
 const ario = ARIO.mainnet();
 
