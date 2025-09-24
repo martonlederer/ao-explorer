@@ -15,29 +15,22 @@ import { formatTimestamp } from "./process";
 import { TransactionListItem } from "./wallet";
 import { useApolloClient } from "@apollo/client";
 import useGateway from "../hooks/useGateway";
+import { useQuery } from "@tanstack/react-query";
 
 dayjs.extend(relativeTime);
 
 export default function Block({ height }: Props) {
-  const [block, setBlock] = useState<BlockInterface | undefined>(undefined);
-  const [loadingBlock, setLoadingBlock] = useState(true);
   const gateway = useGateway();
 
-  useEffect(() => {
-    (async () => {
-      setLoadingBlock(true);
-
-      try {
-        const res = await (
-          await fetch(`${gateway}/block/height/${height}`)
-        ).json();
-
-        setBlock(res);
-      } catch {}
-
-      setLoadingBlock(false);
-    })();
-  }, [height, gateway]);
+  const { data: block, isLoading: loadingBlock } = useQuery<BlockInterface>({
+    queryKey: ["block", height.toString(), gateway],
+    queryFn: async () => {
+      return await (
+        await fetch(`${gateway}/block/height/${height}`)
+      ).json();
+    },
+    staleTime: 10 * 60 * 1000
+  });
 
   const client = useApolloClient();
 

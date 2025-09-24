@@ -12,6 +12,7 @@ export default function usePrimaryName(address?: string, enabled = true) {
 
       return res?.name;
     },
-    enabled: !!address && enabled
+    enabled: !!address && enabled,
+    staleTime: 5 * 60 * 1000
   });
 }

@@ -21,6 +21,7 @@ import { useResizeDetector } from "react-resize-detector";
 import EntityLink from "../components/EntityLink";
 import { Message, Tag } from "../ao/types";
 import useGateway from "../hooks/useGateway";
+import { useQuery } from "@tanstack/react-query";
 
 dayjs.extend(relativeTime);
 
@@ -29,29 +30,25 @@ export default function Interaction({ message }: Props) {
   const client = useApolloClient();
 
   const process = useMemo<string | undefined>(() => message.recipient, [message]);
-
   const tags = useMemo(() => Object.fromEntries(message.tags.map(t => [t.name, t.value])), [message]);
 
-  const [data, setData] = useState("");
-
-  useEffect(() => {
-    (async () => {
-      setData("");
-
+  const { data = "" } = useQuery({
+    queryKey: ["message-data", message.id, gateway],
+    queryFn: async () => {
       const data = await (
         await fetch(`${gateway}/${message.id}`)
       ).text();
 
-      setData(data || "");
-    })();
-  }, [gateway, message]);
+      return data;
+    },
+    select: (data) => data || "",
+    staleTime: 10 * 60 * 1000
+  });
 
-  const [res, setRes] = useState<MessageResult>();
-
-  useEffect(() => {
-    (async () => {
+  const { data: res } = useQuery({
+    queryKey: ["message-result", message.id, process],
+    queryFn: async () => {
       if (!process) return;
-      setRes(undefined);
 
       const resultData = await result({
         message: message.id,
@@ -64,14 +61,21 @@ export default function Interaction({ message }: Props) {
         } catch {}
       }
 
-      setRes(resultData);
-    })();
-  }, [process, message]);
+      return resultData;
+    },
+    enabled: !!process,
+    staleTime: 10 * 60 * 1000
+  });
 
   const { ref: graphRef, ...graphDimensions } = useResizeDetector();
 
-  const [graphData, setGraphData] = useState<LinkedMessageData | undefined>();
-  const [loadingMessages, setLoadingMessages] = useState(true);
+  const { data: graphData, isLoading: loadingMessages } = useQuery({
+    queryKey: ["graph-data", message.id, gateway],
+    queryFn: async () => {
+      return await getLinkedMessages(message, client);
+    },
+    staleTime: 10 * 60 * 1000
+  });
 
   const messageGraphRaw = useMessageGraph(graphData);
   const messageGraph = useMemo(
@@ -108,19 +112,6 @@ export default function Interaction({ message }: Props) {
     },
     [linkedMessages, messageGraph, message]
   );
-
-  useEffect(() => {
-    (async () => {
-      if (!res) return;
-      setLoadingMessages(true);
-      try {
-        const res = await getLinkedMessages(message, client);
-
-        setGraphData(res);
-      } catch {}
-      setLoadingMessages(false);
-    })();
-  }, [message, gateway, res, client]);
 
   const [messagesMode, setMessagesMode] = useState<"resulting" | "linked">("resulting");
   const [graphMode, setGraphMode] = useState<"messages" | "processes">("messages");

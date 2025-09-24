@@ -25,6 +25,7 @@ export default function useInfo(process?: string, enabled = true) {
 
       return undefined;
     },
-    enabled: !!process && enabled
+    enabled: !!process && enabled,
+    staleTime: 2 * 60 * 1000
   });
 }
