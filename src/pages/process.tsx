@@ -900,7 +900,7 @@ export default function Process({ initTx }: Props) {
         <QueryTab>
           <div>
             <TagsWrapper>
-              {Object.keys(info).map((name, i) => name !== "Data" && info.Tags[name] !== "" && (
+              {Object.keys(info.Tags).map((name, i) => name !== "Data" && info.Tags[name] !== "" && (
                 <TagEl
                   name={name}
                   value={info.Tags[name]}
