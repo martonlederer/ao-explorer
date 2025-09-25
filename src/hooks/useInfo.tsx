@@ -16,16 +16,26 @@ export default function useInfo(process?: string, enabled = true) {
         const tags = tagsToRecord(msg.Tags);
 
         if (tags.Name || tags.Ticker) {
-          return {
+          const infoMessage = {
             ...msg,
             Tags: tags
           };
+
+          if (msg.Data && msg.Data !== "") {
+            try {
+              infoMessage.Data = JSON.stringify(JSON.parse(msg.Data), null, 2);
+            } catch {
+              infoMessage.Data = msg.Data;
+            }
+          }
+
+          return infoMessage;
         }
       }
 
       return undefined;
     },
     enabled: !!process && enabled,
-    staleTime: 2 * 60 * 1000
+    staleTime: 4 * 60 * 1000
   });
 }

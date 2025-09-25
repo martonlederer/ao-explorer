@@ -68,7 +68,7 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
       if (info.Ticker || info.Name) {
         return info.Ticker || info.Name;
       }
-      if (isArnsEnabled) return arnsName;
+      if (isArnsEnabled && arnsName) return arnsName;
 
       return tags.Ticker || tags.Name || shortenAddress;
     },

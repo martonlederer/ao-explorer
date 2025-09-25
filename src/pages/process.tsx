@@ -23,11 +23,13 @@ import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
 import { GetEvalMessages, GetIncomingMessagesCount, GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
 import { GetSchedulerLocation, GetSpawnedBy } from "../queries/processes";
-import { useApolloClient, useQuery } from "@apollo/client";
+import { useApolloClient, useQuery as useApolloQuery } from "@apollo/client";
 import EntityLink from "../components/EntityLink";
 import { wellKnownTokens } from "../ao/well_known";
 import { Message, Tag } from "../ao/types";
 import useGateway from "../hooks/useGateway";
+import useInfo from "../hooks/useInfo";
+import { useQuery } from "@tanstack/react-query";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -89,21 +91,21 @@ export default function Process({ initTx }: Props) {
     }
   }, [tags, initTx]);
 
-  const [schedulerURL, setSchedulerURL] = useState<URL>();
+  const { data: schedulerLocationData } = useApolloQuery(GetSchedulerLocation, {
+    variables: { id: tags.Scheduler }
+  });
+  const schedulerURL = useMemo(
+    () => {
+      const url = getTagValue(
+        "Url",
+        schedulerLocationData?.transactions?.edges?.[0]?.node?.tags || []
+      );
 
-  useEffect(() => {
-    (async () => {
-      const res = await client.query({
-        query: GetSchedulerLocation,
-        variables: { id: tags.Scheduler }
-      });
-
-      const url = res?.data?.transactions?.edges?.[0]?.node?.tags?.find((t) => t.name === "Url")?.value;
-      if (!url) return;
-
-      setSchedulerURL(new URL(url));
-    })();
-  }, [tags, initTx, gateway]);
+      if (!url) return undefined;
+      return new URL(url);
+    },
+    [schedulerLocationData]
+  );
 
   const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals" | "transfers" | "balances" | "holders" | "query" | "info">("incoming");
 
@@ -135,7 +137,7 @@ export default function Process({ initTx }: Props) {
     setHasMoreIncoming(true);
   }, [id]);
 
-  const { data: incomingCountData } = useQuery(GetIncomingMessagesCount, {
+  const { data: incomingCountData } = useApolloQuery(GetIncomingMessagesCount, {
     variables: { process: id }
   });
   const incomingCount = useMemo(
@@ -340,38 +342,7 @@ export default function Process({ initTx }: Props) {
     fetchTransfers();
   }, [id, gateway]);
 
-  const [info, setInfo] = useState<Record<string, string> | undefined>();
-
-  useEffect(() => {
-    (async () => {
-      setInfo(undefined);
-
-      const res = await dryrun({
-        process: id,
-        tags: [{ name: "Action", value: "Info" }]
-      });
-
-      if (!res?.Messages || res.Messages.length === 0) {
-        return setInfo(undefined);
-      }
-
-      const infoRes: Message = res.Messages.find((msg: Message) => !!msg.Tags.find((t) => t.name === "Name")?.value) || res.Messages[0];
-      const newInfo: Record<string, string> = {};
-
-      if (infoRes.Data && infoRes.Data !== "") {
-        try {
-          newInfo.Data = JSON.stringify(JSON.parse(infoRes.Data), null, 2);
-        } catch {
-          newInfo.Data = infoRes.Data;
-        }
-      }
-      for (const tag of infoRes.Tags) {
-        newInfo[tag.name] = tag.value;
-      }
-
-      setInfo(newInfo);
-    })();
-  }, [id]);
+  const { data: info } = useInfo(id);
 
   const [tokenBalances, setTokenBalances] = useState<{ token: string; balance: bigint; }[]>([]);
   const [loadingTokenBalances, setLoadingTokenBalances] = useState(true);
@@ -431,37 +402,35 @@ export default function Process({ initTx }: Props) {
     fetchTokenBalances();
   }, [cachedTokens]);
 
-  const [holders, setHolders] = useState<{ addr: string; balance: bigint; }[]>([]);
-
-  useEffect(() => {
-    (async () => {
+  const { data: holders = [] } = useQuery({
+    queryKey: ["token-holders", id],
+    queryFn: async () => {
       const res = await dryrun({
         process: id,
         tags: [
           { name: "Action", value: "Balances" }
         ]
       });
-      if (!res.Messages[0]?.Data || res.Messages[0].Data === "") {
-        return setHolders([]);
+
+      for (const msg of res.Messages as Message[]) {
+        if (!msg.Data || msg.Data === "") continue;
+
+        try {
+          const holdersObj = JSON.parse(msg.Data) as Record<string, string>;
+
+          return Object.entries(holdersObj)
+            .map(([holder, balance]) => ({
+              addr: holder,
+              balance: BigInt(balance || 0)
+            }))
+            .sort((a, b) => a.balance > b.balance ? -1 : 1);
+        } catch {}
       }
 
-      try {
-        const balances: { addr: string; balance: bigint; }[] = [];
-
-        for (const [holder, bal] of Object.entries(JSON.parse(res.Messages[0].Data))) {
-          balances.push({
-            addr: holder,
-            balance: BigInt(bal as string || 0)
-          });
-        }
-
-        setHolders(balances.sort((a, b) => a.balance > b.balance ? -1 : 1));
-      } catch {
-        // not balances obj
-        setHolders([]);
-      }
-    })();
-  }, [id]);
+      return [];
+    },
+    staleTime: 2 * 60 * 1000
+  });
 
   const address = useActiveAddress();
   const messageSchema = useMemo(
@@ -759,10 +728,10 @@ export default function Process({ initTx }: Props) {
       <ProcessTitle>
         Process
         {// @ts-expect-error
-          !!(info?.Name || tags.Name || (cachedTokens[id] !== "pending" && cachedTokens[id]?.name )) && (
+          !!(info?.Tags?.Name || tags.Name || (cachedTokens[id] !== "pending" && cachedTokens[id]?.name )) && (
           <ProcessName>
-            {info?.Name || tags.Name || (cachedTokens[id] as any)?.name}
-            {(info?.Logo || (cachedTokens[id] as any)?.logo) && <TokenLogo src={`${gateway}/${info?.Logo || (cachedTokens[id] as any)?.logo}`} draggable={false} />}
+            {info?.Tags?.Name || tags.Name || (cachedTokens[id] as any)?.name}
+            {(info?.Tags?.Logo || (cachedTokens[id] as any)?.logo) && <TokenLogo src={`${gateway}/${info?.Tags?.Logo || (cachedTokens[id] as any)?.logo}`} draggable={false} />}
             <BookmarkProcess filled={isMarked} onClick={toggleBookmark} />
           </ProcessName>
         )}
@@ -931,10 +900,10 @@ export default function Process({ initTx }: Props) {
         <QueryTab>
           <div>
             <TagsWrapper>
-              {Object.keys(info).map((name, i) => name !== "Data" && info[name] !== "" && (
+              {Object.keys(info).map((name, i) => name !== "Data" && info.Tags[name] !== "" && (
                 <TagEl
                   name={name}
-                  value={info[name]}
+                  value={info.Tags[name]}
                   key={i}
                 />
               ))}
@@ -944,7 +913,7 @@ export default function Process({ initTx }: Props) {
             theme="vs-dark"
             defaultLanguage="json"
             defaultValue={"{}\n"}
-            value={(info?.Data || "{}") + "\n"}
+            value={(info.Data || "{}") + "\n"}
             options={{ minimap: { enabled: false }, readOnly: true }}
           />
         </QueryTab>
@@ -1003,12 +972,12 @@ export default function Process({ initTx }: Props) {
               </td>
               <td style={{ display: "flex", alignItems: "center" }}>
                 <span>
-                  {formatQuantity(new Quantity(item.balance, BigInt(info?.Denomination || 12)))}
+                  {formatQuantity(new Quantity(item.balance, BigInt(info?.Tags?.Denomination || 12)))}
                 </span>
-                {info?.Ticker && (
+                {info?.Tags?.Ticker && (
                   <TokenTicker>
-                    {info.Logo && <TokenIcon src={`${gateway}/${info.Logo}`} draggable={false} />}
-                    {info.Ticker}
+                    {info.Tags.Logo && <TokenIcon src={`${gateway}/${info.Tags.Logo}`} draggable={false} />}
+                    {info.Tags.Ticker}
                   </TokenTicker>
                 )}
               </td>

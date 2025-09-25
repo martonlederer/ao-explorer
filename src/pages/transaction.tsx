@@ -18,6 +18,7 @@ import { useApolloClient } from "@apollo/client";
 import { TransactionListItem } from "./wallet";
 import { GetProcessesForModule } from "../queries/processes";
 import useGateway from "../hooks/useGateway";
+import { useQuery } from "@tanstack/react-query";
 
 dayjs.extend(relativeTime);
 
@@ -25,35 +26,39 @@ export default function Transaction({ transaction }: Props) {
   const tags = useMemo(() => Object.fromEntries(transaction.tags.map(t => [t.name, t.value])), [transaction]);
   const dataType = useMemo(() => transaction.data.type?.split("/")?.[0], [transaction]);
 
-  const [confirmations, setConfirmations] = useState(0);
   const gateway = useGateway();
 
-  useEffect(() => {
-    (async () => {
+  const { data: confirmations = 0 } = useQuery({
+    queryKey: ["transaction-confirmations", transaction.id, gateway],
+    queryFn: async () => {
       const res = await (
         await fetch(`${gateway}/tx/${transaction.id}/status`)
       ).json();
 
-      setConfirmations(res?.number_of_confirmations || 0);
-    })();
-  }, [transaction.id, gateway]);
+      return res?.number_of_confirmations || 0;
+    },
+    staleTime: 60 * 1000
+  });
 
-  const [data, setData] = useState("");
-
-  useEffect(() => {
-    (async () => {
+  const { data = "" } = useQuery({
+    queryKey: ["transaction-data", transaction.id, gateway, dataType],
+    queryFn: () => new Promise<string>(async (resolve, reject) => {
       const res = await fetch(`${gateway}/${transaction.id}`);
 
       if (dataType === "image") {
         const raw = await res.blob();
-        const reader = new FileReader() ;
-        reader.onload = () => setData(reader.result as string);
-        reader.readAsDataURL(raw) ;
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+
+        reader.readAsDataURL(raw);
       } else {
-        setData(await res.text() || "")
+        resolve(await res.text());
       }
-    })();
-  }, [transaction, gateway, dataType]);
+    }),
+    select: (val) => val || "",
+    staleTime: 5 * 60 * 1000
+  });
 
   const isBundle = useMemo(
     () => typeof tags["Bundle-Format"] !== "undefined" || typeof tags["Bundle-Version"] !== "undefined",

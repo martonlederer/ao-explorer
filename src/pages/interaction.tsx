@@ -1,11 +1,10 @@
-import { LinkedMessageData, getLinkedMessages, useMessageGraph, useProcessGraph } from "../utils/message_graph";
+import { getLinkedMessages, useMessageGraph, useProcessGraph } from "../utils/message_graph";
 import { Copy, ProcessID, ProcessName, ProcessTitle, Space, Tables, Wrapper } from "../components/Page";
 import { InteractionsCount, InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
 import { TransactionNode } from "../queries/messages";
 import { formatAddress, formatJSONOrString, getTagValue } from "../utils/format";
-import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import TagEl, { TagsWrapper } from "../components/Tag";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useApolloClient } from "@apollo/client";
 import { Editor } from "@monaco-editor/react";
