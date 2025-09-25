@@ -794,15 +794,6 @@ export default function Process({ initTx }: Props) {
               </TagsWrapper>
             </td>
           </tr>
-          <tr>
-            <td>Memory</td>
-            <td>
-              <a href={`https://ao-cu-1.onrender.com/state/${id}`}>
-                Download
-                <DownloadIcon />
-              </a>
-            </td>
-          </tr>
         </Table>
       </Tables>
       <Title>
