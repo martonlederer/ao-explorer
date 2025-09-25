@@ -30,6 +30,7 @@ import { Message, Tag } from "../ao/types";
 import useGateway from "../hooks/useGateway";
 import useInfo from "../hooks/useInfo";
 import { useQuery } from "@tanstack/react-query";
+import { parse } from "graphql";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -141,7 +142,10 @@ export default function Process({ initTx }: Props) {
     variables: { process: id }
   });
   const incomingCount = useMemo(
-    () => incomingCountData?.transactions?.count,
+    () => {
+      const raw = parseInt(incomingCountData?.transactions?.count || "0");
+      return raw.toLocaleString();
+    },
     [incomingCountData]
   );
 
@@ -158,7 +162,7 @@ export default function Process({ initTx }: Props) {
       }
     });
 
-    setOutgoingCount(res.data.transactions.count);
+    setOutgoingCount(parseInt(res.data.transactions.count).toLocaleString());
     setHasMoreOutgoing(res.data.transactions.pageInfo.hasNextPage);
     setOutgoing((val) => {
       // manually filter out duplicate transactions
@@ -201,7 +205,7 @@ export default function Process({ initTx }: Props) {
       }
     });
 
-    setSpawnsCount(res.data.transactions.count);
+    setSpawnsCount(parseInt(res.data.transactions.count).toLocaleString());
     setHasMoreSpawns(res.data.transactions.pageInfo.hasNextPage);
     setSpawns((val) => {
       for (const tx of res.data.transactions.edges) {
@@ -240,7 +244,7 @@ export default function Process({ initTx }: Props) {
       }
     });
 
-    setEvalsCount(res.data.transactions.count);
+    setEvalsCount(parseInt(res.data.transactions.count).toLocaleString());
     setHasMoreEvals(res.data.transactions.pageInfo.hasNextPage);
     setEvals((val) => {
       // manually filter out duplicate transactions
@@ -284,7 +288,7 @@ export default function Process({ initTx }: Props) {
       }
     });
 
-    setTransfersCount(res.data.transactions.count);
+    setTransfersCount(parseInt(res.data.transactions.count).toLocaleString());
     setHasMoreTransfers(res.data.transactions.pageInfo.hasNextPage);
     setTransfers((val) => {
       for (const tx of res.data.transactions.edges) {
@@ -874,7 +878,7 @@ export default function Process({ initTx }: Props) {
             >
               Holders
               <InteractionsCount>
-                {holders.filter(h => h.balance > 0n).length}
+                {holders.filter(h => h.balance > 0n).length.toLocaleString()}
               </InteractionsCount>
             </InteractionsMenuItem>
           )}

@@ -259,7 +259,7 @@ export default function Interaction({ message }: Props) {
             Resulting messages
             {typeof res?.Messages?.length !== "undefined" && (
               <InteractionsCount>
-                {res.Messages.length}
+                {res.Messages.length.toLocaleString()}
               </InteractionsCount>
             )}
           </InteractionsMenuItem>
@@ -269,7 +269,7 @@ export default function Interaction({ message }: Props) {
           >
             Linked messages
             <InteractionsCount>
-              {linkedMessages.length}
+              {linkedMessages.length.toLocaleString()}
             </InteractionsCount>
           </InteractionsMenuItem>
         </InteractionsWrapper>
