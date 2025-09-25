@@ -86,12 +86,12 @@ export default function EntityLink({ address, transaction: defaultTransaction, a
           <TokenLogo src="/arns.svg" draggable={false} />
         )}
       </LinkWrapper>
-      <CopyWrapper>
-        {(!copiedRecently && <Copy onClick={copy} />) || <CheckIcon />}
-      </CopyWrapper>
       <Tooltip>
         {address}
       </Tooltip>
+      <CopyWrapper>
+        {(!copiedRecently && <Copy onClick={copy} />) || <CheckIcon />}
+      </CopyWrapper>
     </Wrapper>
   );
 }
@@ -167,10 +167,6 @@ const Wrapper = styled.div<{ accent?: boolean }>`
     color: ${props => props.accent ? "#04ff00" : "inherit"};
   }
 
-  &:not(:hover) ${Tooltip} {
-    display: none;
-  }
-
   &:not(:hover) ${CopyWrapper} {
     opacity: 0;
   }
@@ -185,5 +181,9 @@ const LinkWrapper = styled(Link)<{ accent?: boolean }>`
 
   &:hover {
     opacity: .8;
+  }
+
+  &:not(:hover) + ${Tooltip} {
+    display: none;
   }
 `;
