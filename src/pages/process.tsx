@@ -29,6 +29,7 @@ import { Message, Tag } from "../ao/types";
 import useGateway from "../hooks/useGateway";
 import useInfo from "../hooks/useInfo";
 import { useQuery } from "@tanstack/react-query";
+import TransferAmount from "../components/TransferAmount";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -982,19 +983,11 @@ export default function Process({ initTx }: Props) {
                   <EntityLink address={transfer.to} />
                 </td>
                 <td>
-                  <Link to={`#/${transfer.token}`}>
-                    <span style={{ color: transfer.dir === "out" ? "#ff0000" : "#00db5f" }}>
-                      {transfer.dir === "out" ? "-" : "+"}
-                      {//@ts-expect-error
-                        formatQuantity(new Quantity(transfer.quantity, cachedTokens[transfer.token] !== "pending" ? cachedTokens[transfer.token]?.denomination || 12n : 12n))}
-                    </span>
-                    {typeof cachedTokens[transfer.token] !== "undefined" && cachedTokens[transfer.token] !== "pending" && (
-                      <TokenTicker>
-                        <TokenIcon src={`${gateway}/${(cachedTokens[transfer.token] as any).logo}`} draggable={false} />
-                        {(cachedTokens[transfer.token] as any).ticker}
-                      </TokenTicker>
-                    )}
-                  </Link>
+                  <TransferAmount
+                    token={transfer.token}
+                    quantity={transfer.quantity}
+                    direction={transfer.dir}
+                  />
                 </td>
                 <td>
                   {formatTimestamp(transfer.time ? transfer.time * 1000 : undefined)}
