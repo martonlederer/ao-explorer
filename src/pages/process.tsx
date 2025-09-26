@@ -228,8 +228,8 @@ export default function Process({ initTx }: Props) {
         val.push({
           id: tx.node.id,
           dir,
-          from: dir === "in" ? getTagValue("Sender", tx.node.tags) || "" : id,
-          to: dir === "out" ? getTagValue("Recipient", tx.node.tags) || "" : id,
+          from: getTagValue("Sender", tx.node.tags) || tx.node.owner.address,
+          to: getTagValue("Recipient", tx.node.tags) || tx.node.recipient,
           quantity: getTagValue("Quantity", tx.node.tags) || "0",
           token,
           time: tx.node.block?.timestamp,

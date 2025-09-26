@@ -301,7 +301,7 @@ export default function Wallet({ address }: Props) {
 
       setTokenBalances((val) => {
         for (const balRes of res) {
-          if (!balRes || !!val.find((t) => t.token === balRes.token)) continue;
+          if (!balRes?.messages || !!val.find((t) => t.token === balRes.token)) continue;
           const balanceMsg: Message = balRes.messages.find(
             (msg: Message) => !!getTagValue("Balance", msg.Tags)
           );

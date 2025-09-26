@@ -290,7 +290,7 @@ interface GetTransfersForType {
     };
     count: string;
     edges: {
-      node: Omit<TransactionNode, "recipient">;
+      node: TransactionNode;
       cursor: string;
     }[];
   };
@@ -322,6 +322,9 @@ export const GetTransfersFor: TypedDocumentNode<GetTransfersForType, { process: 
           block {
             height
             timestamp
+          }
+          owner {
+            address
           }
           recipient
         }

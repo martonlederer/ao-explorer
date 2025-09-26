@@ -28,8 +28,9 @@ export default function Interaction({ message }: Props) {
   const gateway = useGateway();
   const client = useApolloClient();
 
-  const process = useMemo<string | undefined>(() => message.recipient, [message]);
   const tags = useMemo(() => Object.fromEntries(message.tags.map(t => [t.name, t.value])), [message]);
+  const from = useMemo(() => tags["From-Process"] || message.owner.address, [message, tags]);
+  const to = useMemo<string | undefined>(() => message.recipient, [message]);
 
   const { data = "" } = useQuery({
     queryKey: ["message-data", message.id, gateway],
@@ -45,13 +46,13 @@ export default function Interaction({ message }: Props) {
   });
 
   const { data: res } = useQuery({
-    queryKey: ["message-result", message.id, process],
+    queryKey: ["message-result", message.id, to],
     queryFn: async () => {
-      if (!process) return;
+      if (!to) return;
 
       const resultData = await result({
         message: message.id,
-        process
+        process: to
       });
 
       for (const message of resultData.Messages as Message[]) {
@@ -62,7 +63,7 @@ export default function Interaction({ message }: Props) {
 
       return resultData;
     },
-    enabled: !!process,
+    enabled: !!to,
     staleTime: 10 * 60 * 1000
   });
 
@@ -182,17 +183,19 @@ export default function Interaction({ message }: Props) {
         <Table>
           <tr></tr>
           <tr>
-            <td>Owner</td>
+            <td>From</td>
             <td>
-              <EntityLink address={tags["From-Process"] || message.owner.address} />
+              <EntityLink address={from} />
             </td>
           </tr>
-          <tr>
-            <td>Variant</td>
-            <td>
-              {tags.Variant}
-            </td>
-          </tr>
+          {to && (
+            <tr>
+              <td>To</td>
+              <td>
+                <EntityLink address={to} />
+              </td>
+            </tr>
+          )}
           {tags.Action && (
             <tr>
               <td>Action</td>
@@ -201,14 +204,12 @@ export default function Interaction({ message }: Props) {
               </td>
             </tr>
           )}
-          {process && (
-            <tr>
-              <td>Process</td>
-              <td>
-                <EntityLink address={process} />
-              </td>
-            </tr>
-          )}
+          <tr>
+            <td>Variant</td>
+            <td>
+              {tags.Variant}
+            </td>
+          </tr>
           {tags["Pushed-For"] && tags["From-Process"] && (
             <tr>
               <td>
