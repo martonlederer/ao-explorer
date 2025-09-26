@@ -206,12 +206,20 @@ interface GetOutgoingMessagesType {
     pageInfo: {
       hasNextPage: boolean;
     };
-    count: string;
     edges: {
       node: Omit<TransactionNode, "owner">;
       cursor: string;
     }[];
   };
+}
+
+export const defaultGetOutgoingMessages: GetOutgoingMessagesType = {
+  transactions: {
+    pageInfo: {
+      hasNextPage: true
+    },
+    edges: []
+  }
 }
 
 export const GetOutgoingMessages: TypedDocumentNode<GetOutgoingMessagesType, { process: string; cursor?: string }> = gql`
@@ -227,7 +235,6 @@ export const GetOutgoingMessages: TypedDocumentNode<GetOutgoingMessagesType, { p
       pageInfo {
         hasNextPage
       }
-      count
       edges {
         node {
           id
@@ -243,6 +250,25 @@ export const GetOutgoingMessages: TypedDocumentNode<GetOutgoingMessagesType, { p
         }
         cursor
       }
+    }
+  }
+`;
+
+interface GetOutgoingMessagesCountType {
+  transactions: {
+    count: string;
+  };
+}
+
+export const GetOutgoingMessagesCount: TypedDocumentNode<GetOutgoingMessagesCountType, { process: string; }> = gql`
+  query GetOutgoingMessagesCount ($process: String!) {
+    transactions(
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+        { name: "From-Process", values: [$process] }
+      ]
+    ) {
+      count
     }
   }
 `;

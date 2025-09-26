@@ -1,5 +1,4 @@
 import { Copy, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper, Tables } from "../components/Page";
-import { DownloadIcon } from "@iconicicons/react";
 import { createDataItemSigner, message, dryrun, result } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import { formatAddress, getTagValue } from "../utils/format";
@@ -21,7 +20,7 @@ import { Quantity } from "ao-tokens-lite";
 import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
-import { GetEvalMessages, GetIncomingMessagesCount, GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
+import { GetEvalMessages, GetIncomingMessagesCount, GetOutgoingMessages, GetOutgoingMessagesCount, GetTransfersFor, TransactionNode, defaultGetOutgoingMessages } from "../queries/messages";
 import { GetSchedulerLocation, GetSpawnedBy } from "../queries/processes";
 import { useApolloClient, useQuery as useApolloQuery } from "@apollo/client";
 import EntityLink from "../components/EntityLink";
@@ -30,7 +29,6 @@ import { Message, Tag } from "../ao/types";
 import useGateway from "../hooks/useGateway";
 import useInfo from "../hooks/useInfo";
 import { useQuery } from "@tanstack/react-query";
-import { parse } from "graphql";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -149,48 +147,55 @@ export default function Process({ initTx }: Props) {
     [incomingCountData]
   );
 
-  const [hasMoreOutgoing, setHasMoreOutgoing] = useState(true);
-  const [outgoing, setOutgoing] = useState<OutgoingInteraction[]>([]);
-  const [outgoingCount, setOutgoingCount] = useState<string | undefined>();
+  const {
+    data: outgoing = defaultGetOutgoingMessages,
+    fetchMore: fetchMoreOutgoing
+  } = useApolloQuery(GetOutgoingMessages, {
+    variables: { process: id }
+  });
 
-  async function fetchOutgoing() {
-    const res = await client.query({
-      query: GetOutgoingMessages,
-      variables: {
-        process: id,
-        cursor: outgoing[outgoing.length - 1]?.cursor
-      }
-    });
+  const { data: outgoingCountData } = useApolloQuery(GetOutgoingMessagesCount, {
+    variables: { process: id }
+  });
+  const outgoingCount = useMemo(
+    () => {
+      const raw = parseInt(outgoingCountData?.transactions?.count || "0");
+      return raw.toLocaleString();
+    },
+    [outgoingCountData]
+  );
 
-    setOutgoingCount(parseInt(res.data.transactions.count).toLocaleString());
-    setHasMoreOutgoing(res.data.transactions.pageInfo.hasNextPage);
-    setOutgoing((val) => {
-      // manually filter out duplicate transactions
-      // for some reason, the ar.io nodes return the
-      // same transaction multiple times for certain
-      // queries
-      for (const tx of res.data.transactions.edges) {
-        if (val.find((t) => t.id === tx.node.id)) continue;
-        val.push({
-          id: tx.node.id,
-          target: tx.node.recipient,
-          action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
-          block: tx.node.block?.height || 0,
-          time: tx.node.block?.timestamp,
-          cursor: tx.cursor
-        });
-      }
+  // async function fetchOutgoing() {
+  //   const res = await client.query({
+  //     query: GetOutgoingMessages,
+  //     variables: {
+  //       process: id,
+  //       cursor: outgoing[outgoing.length - 1]?.cursor
+  //     }
+  //   });
 
-      return val;
-    });
-  }
+  //   setOutgoingCount(parseInt(res.data.transactions.count).toLocaleString());
+  //   setHasMoreOutgoing(res.data.transactions.pageInfo.hasNextPage);
+  //   setOutgoing((val) => {
+  //     // manually filter out duplicate transactions
+  //     // for some reason, the ar.io nodes return the
+  //     // same transaction multiple times for certain
+  //     // queries
+  //     for (const tx of res.data.transactions.edges) {
+  //       if (val.find((t) => t.id === tx.node.id)) continue;
+  //       val.push({
+  //         id: tx.node.id,
+  //         target: tx.node.recipient,
+  //         action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
+  //         block: tx.node.block?.height || 0,
+  //         time: tx.node.block?.timestamp,
+  //         cursor: tx.cursor
+  //       });
+  //     }
 
-  useEffect(() => {
-    setOutgoing([]);
-    setHasMoreOutgoing(true);
-    setOutgoingCount(undefined);
-    fetchOutgoing();
-  }, [id, gateway]);
+  //     return val;
+  //   });
+  // }
 
   const [hasMoreSpawns, setHasMoreSpawns] = useState(true);
   const [spawns, setSpawns] = useState<Process[]>([]);
@@ -1183,9 +1188,13 @@ export default function Process({ initTx }: Props) {
       )}
       {interactionsMode === "outgoing" && (
         <InfiniteScroll
-          dataLength={outgoing.length}
-          next={fetchOutgoing}
-          hasMore={hasMoreOutgoing}
+          dataLength={outgoing.transactions.edges.length}
+          next={() => fetchMoreOutgoing({
+            variables: {
+              cursor: outgoing.transactions.edges[outgoing.transactions.edges.length - 1].cursor
+            }
+          })}
+          hasMore={outgoing.transactions.pageInfo.hasNextPage}
           loader={<LoadingStatus>Loading...</LoadingStatus>}
           endMessage={
             <LoadingStatus>
@@ -1202,25 +1211,25 @@ export default function Process({ initTx }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {outgoing.map((interaction, i) => (
+            {outgoing.transactions.edges.map((tx, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/${interaction.id}`}>
-                    {formatAddress(interaction.id)}
+                  <Link to={`#/${tx.node.id}`}>
+                    {formatAddress(tx.node.id)}
                   </Link>
                 </td>
                 <td>
-                  {interaction.action}
+                  {getTagValue("Action", tx.node.tags) || "-"}
                 </td>
                 <td>
-                  <EntityLink address={interaction.target} />
+                  <EntityLink address={tx.node.recipient} />
                 </td>
                 <td>
-                  <Link to={`#/${interaction.block}`}>{interaction.block}</Link>
+                  <Link to={`#/${tx.node.block?.height || 0}`}>{tx.node.block?.height || 0}</Link>
                 </td>
                 <td>
-                  {formatTimestamp(interaction.time && interaction.time * 1000)}
+                  {tx.node.block ? formatTimestamp(tx.node.block.timestamp * 1000) : "Just now"}
                 </td>
               </tr>
             ))}
