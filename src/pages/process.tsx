@@ -302,7 +302,7 @@ export default function Process({ initTx }: Props) {
           const balanceMsg: Message = balRes.messages.find(
             (msg: Message) => !!getTagValue("Balance", msg.Tags)
           );
-          const balance = BigInt(getTagValue("Balance", balanceMsg.Tags) || 0);
+          const balance = BigInt(getTagValue("Balance", balanceMsg?.Tags) || 0);
 
           if (balance > 0n) {
             val.push({
