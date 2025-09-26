@@ -1,7 +1,8 @@
 import { Quantity } from "ao-tokens-lite";
 import { Tag } from "../ao/types";
 
-export function formatAddress(address: string, count = 8) {
+export function formatAddress(address?: string, count = 8) {
+  if (!address) return "";
   return (
     address.substring(0, count) +
     "..." +
