@@ -159,15 +159,6 @@ export const GetIncomingMessagesCount: TypedDocumentNode<GetTransactionsCountTyp
   }
 `;
 
-export const defaultGetEvalMessages: GetAllMessagesType = {
-  transactions: {
-    pageInfo: {
-      hasNextPage: true
-    },
-    edges: []
-  }
-};
-
 export const GetEvalMessages: TypedDocumentNode<GetAllMessagesType, { process: string; cursor?: string }> = gql`
   query GetEvalMessages ($process: String!, $cursor: String) {
     transactions(
@@ -228,15 +219,6 @@ interface GetOutgoingMessagesType {
     }[];
   };
 }
-
-export const defaultGetOutgoingMessages: GetOutgoingMessagesType = {
-  transactions: {
-    pageInfo: {
-      hasNextPage: true
-    },
-    edges: []
-  }
-};
 
 export const GetOutgoingMessages: TypedDocumentNode<GetOutgoingMessagesType, { process: string; cursor?: string }> = gql`
   query GetOutgoingMessages ($process: String!, $cursor: String) {

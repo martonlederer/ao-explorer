@@ -2,20 +2,18 @@ import { Copy, NotFound, ProcessID, ProcessName, ProcessTitle, Space, Tables, Ti
 import Table, { TransactionType } from "../components/Table";
 import relativeTime from "dayjs/plugin/relativeTime";
 import dayjs from "dayjs";
-import { useEffect, useState } from "react";
-import { Block as BlockInterface, GetTransactionsForBlock } from "../queries/base";
+import { Block as BlockInterface, GetTransactionsForBlock, defaultGraphqlTransactions } from "../queries/base";
 import EntityLink from "../components/EntityLink";
 import prettyBytes from "pretty-bytes";
-import { formatTokenQuantity } from "../utils/format";
+import { formatTokenQuantity, getTagValue, getTransactionType } from "../utils/format";
 import { Quantity } from "ao-tokens-lite";
 import { Link } from "wouter";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { LoadingStatus } from ".";
 import { formatTimestamp } from "./process";
-import { TransactionListItem } from "./wallet";
-import { useApolloClient } from "@apollo/client";
 import useGateway from "../hooks/useGateway";
 import { useQuery } from "@tanstack/react-query";
+import { useQuery as useApolloQuery } from "@apollo/client";
 
 dayjs.extend(relativeTime);
 
@@ -32,50 +30,12 @@ export default function Block({ height }: Props) {
     staleTime: 10 * 60 * 1000
   });
 
-  const client = useApolloClient();
-
-  const [hasMoreTransactions, setHasMoreTransactions] = useState(true);
-  const [transactions, setTransactions] = useState<TransactionListItem[]>([]);
-
-  async function fetchTransactions() {
-    const res = await client.query({
-      query: GetTransactionsForBlock,
-      variables: {
-        block: parseInt(height),
-        cursor: transactions[transactions.length - 1]?.cursor
-      }
-    });
-
-    setHasMoreTransactions(res.data.transactions.pageInfo.hasNextPage);
-    setTransactions((val) => {
-      // manually filter out duplicate transactions
-      // for some reason, the ar.io nodes return the
-      // same transaction multiple times for certain
-      // queries
-      for (const tx of res.data.transactions.edges) {
-        val.push({
-          // @ts-expect-error
-          type: tx.node.tags.find((tag) => tag.name === "Type")?.value || "Transaction",
-          id: tx.node.id,
-          owner: tx.node.tags.find((tag) => tag.name === "From-Process")?.value || tx.node.owner.address,
-          target: tx.node.recipient,
-          action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
-          block: tx.node.block?.height || 0,
-          time: tx.node.block?.timestamp,
-          original: tx.node,
-          cursor: tx.cursor
-        });
-      }
-
-      return val;
-    });
-  }
-
-  useEffect(() => {
-    setTransactions([]);
-    setHasMoreTransactions(true);
-    fetchTransactions();
-  }, [height]);
+  const {
+    data: transactions = defaultGraphqlTransactions,
+    fetchMore: fetchMoreTransactions
+  } = useApolloQuery(GetTransactionsForBlock, {
+    variables: { block: parseInt(height) }
+  });
 
   if (loadingBlock || !block) {
     return (
@@ -155,9 +115,13 @@ export default function Block({ height }: Props) {
         Transactions
       </Title>
       <InfiniteScroll
-        dataLength={transactions.length}
-        next={fetchTransactions}
-        hasMore={hasMoreTransactions}
+        dataLength={transactions.transactions.edges.length}
+        next={() => fetchMoreTransactions({
+          variables: {
+            cursor: transactions.transactions.edges[transactions.transactions.edges.length - 1].cursor
+          }
+        })}
+        hasMore={transactions.transactions.pageInfo.hasNextPage}
         loader={<LoadingStatus>Loading...</LoadingStatus>}
         endMessage={
           <LoadingStatus>
@@ -174,27 +138,27 @@ export default function Block({ height }: Props) {
             <th>To</th>
             <th>Time</th>
           </tr>
-          {transactions.map((tx, i) => (
+          {transactions.transactions.edges.map((tx, i) => (
             <tr key={i}>
               <td>
                 <TransactionType>
-                  {tx.type}
+                  {getTransactionType(tx.node.tags)}
                 </TransactionType>
               </td>
               <td>
-                <EntityLink address={tx.id} transaction={tx.original} idonly />
+                <EntityLink address={tx.node.id} transaction={tx.node} idonly />
               </td>
               <td>
-                {tx.action}
+                {getTagValue("Action", tx.node.tags) || "-"}
               </td>
               <td>
-                <EntityLink address={tx.owner} />
+                <EntityLink address={getTagValue("From-Process", tx.node.tags) || tx.node.owner.address} />
               </td>
               <td>
-                <EntityLink address={tx.target} />
+                <EntityLink address={tx.node.recipient} />
               </td>
               <td>
-                {formatTimestamp(tx.time && tx.time * 1000)}
+                {formatTimestamp(tx.node.block?.timestamp && tx.node.block.timestamp * 1000)}
               </td>
             </tr>
           ))}

@@ -185,15 +185,6 @@ export interface GetSpawnedByType {
   };
 }
 
-export const defaultGetSpawnedBy: GetSpawnedByType = {
-  transactions: {
-    pageInfo: {
-      hasNextPage: true
-    },
-    edges: []
-  }
-};
-
 export const GetSpawnedBy: TypedDocumentNode<GetSpawnedByType, { process: string; cursor?: string }> = gql`
   query GetSpawnedBy ($process: String!, $cursor: String) {
     transactions(

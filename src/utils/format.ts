@@ -13,6 +13,14 @@ export const isAddress = (addr: string) => /^[a-z0-9_-]{43}$/i.test(addr) && add
 
 export const getTagValue = (tagName: string, tags: Tag[]) => tags.find((t) => t.name === tagName)?.value;
 
+export function getTransactionType(tags: Tag[]) {
+  const typeValue = getTagValue("Type", tags);
+
+  if (typeValue) return typeValue;
+  if (getTagValue("Bundle-Format", tags)) return "Bundle";
+  return "Transaction";
+}
+
 export function formatJSONOrString(maybeJson: string = "{}") {
   try {
     const parsed = JSON.parse(maybeJson);

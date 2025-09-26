@@ -295,3 +295,12 @@ export const GetTransactionsInBundle: TypedDocumentNode<FullTransactionNodeQuery
     }
   }
 `;
+
+export const defaultGraphqlTransactions = {
+  transactions: {
+    pageInfo: {
+      hasNextPage: true
+    },
+    edges: []
+  }
+};

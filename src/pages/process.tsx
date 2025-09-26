@@ -1,5 +1,5 @@
 import { Copy, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper, Tables } from "../components/Page";
-import { createDataItemSigner, message, dryrun, result, spawn } from "@permaweb/aoconnect"
+import { createDataItemSigner, message, dryrun, result } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import { formatAddress, getTagValue } from "../utils/format";
 import { useActiveAddress, useConnection } from "@arweave-wallet-kit/react";
@@ -20,8 +20,8 @@ import { Quantity } from "ao-tokens-lite";
 import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
-import { GetEvalMessages, GetEvalMessagesCount, GetIncomingMessagesCount, GetOutgoingMessages, GetOutgoingMessagesCount, GetTransfersFor, TransactionNode, defaultGetEvalMessages, defaultGetOutgoingMessages } from "../queries/messages";
-import { GetSchedulerLocation, GetSpawnedBy, GetSpawnedByCount, defaultGetSpawnedBy } from "../queries/processes";
+import { GetEvalMessages, GetEvalMessagesCount, GetIncomingMessagesCount, GetOutgoingMessages, GetOutgoingMessagesCount, GetTransfersFor, TransactionNode } from "../queries/messages";
+import { GetSchedulerLocation, GetSpawnedBy, GetSpawnedByCount } from "../queries/processes";
 import { useApolloClient, useQuery as useApolloQuery } from "@apollo/client";
 import EntityLink from "../components/EntityLink";
 import { wellKnownTokens } from "../ao/well_known";
@@ -30,6 +30,7 @@ import useGateway from "../hooks/useGateway";
 import useInfo from "../hooks/useInfo";
 import { useQuery } from "@tanstack/react-query";
 import TransferAmount from "../components/TransferAmount";
+import { defaultGraphqlTransactions } from "../queries/base";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -43,15 +44,6 @@ interface Process {
   module: string;
   block: number;
   timestamp: number;
-  cursor: string;
-}
-
-interface Eval {
-  id: string;
-  from: string;
-  action: string;
-  block: number;
-  time?: number;
   cursor: string;
 }
 
@@ -149,7 +141,7 @@ export default function Process({ initTx }: Props) {
   );
 
   const {
-    data: outgoing = defaultGetOutgoingMessages,
+    data: outgoing = defaultGraphqlTransactions,
     fetchMore: fetchMoreOutgoing
   } = useApolloQuery(GetOutgoingMessages, {
     variables: { process: id }
@@ -167,7 +159,7 @@ export default function Process({ initTx }: Props) {
   );
 
   const {
-    data: spawns = defaultGetSpawnedBy,
+    data: spawns = defaultGraphqlTransactions,
     fetchMore: fetchMoreSpawns
   } = useApolloQuery(GetSpawnedBy, {
     variables: { process: id }
@@ -185,7 +177,7 @@ export default function Process({ initTx }: Props) {
   );
 
   const {
-    data: evals = defaultGetEvalMessages,
+    data: evals = defaultGraphqlTransactions,
     fetchMore: fetchMoreEvals
   } = useApolloQuery(GetEvalMessages, {
     variables: { process: id }
@@ -1276,15 +1268,6 @@ const QueryInput = styled.textarea`
 
 interface Props {
   initTx: TransactionNode;
-}
-
-interface OutgoingInteraction {
-  id: string;
-  target: string;
-  action: string;
-  block: number;
-  time?: number;
-  cursor: string;
 }
 
 export const TokenTicker = styled.span`
