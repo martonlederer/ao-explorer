@@ -1,6 +1,6 @@
 import { TypedDocumentNode, gql } from "@apollo/client";
 import { TransactionNode } from "./messages";
-import { Tag } from "./processes";
+import { Tag } from "../ao/types";
 
 export interface GetTransactionType {
   transactions: {
@@ -295,3 +295,12 @@ export const GetTransactionsInBundle: TypedDocumentNode<FullTransactionNodeQuery
     }
   }
 `;
+
+export const defaultGraphqlTransactions = {
+  transactions: {
+    pageInfo: {
+      hasNextPage: true
+    },
+    edges: []
+  }
+};

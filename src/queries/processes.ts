@@ -1,10 +1,6 @@
 import { gql, TypedDocumentNode } from "@apollo/client";
-import { Block, GetMessageType } from "./messages";
-
-export interface Tag {
-  name: string;
-  value: string;
-}
+import { Block, GetMessageType, GetTransactionsCountType } from "./messages";
+import { Tag } from "../ao/types";
 
 interface GetAllProcessesType {
   transactions: {
@@ -138,7 +134,7 @@ interface GetSchedulerLocationType {
 }
 
 export const GetSchedulerLocation: TypedDocumentNode<GetSchedulerLocationType, { id: string }> = gql`
-  query GetSchedulerLocation ($id: ID!) {
+  query GetSchedulerLocation ($id: String!) {
     transactions(
       owners: [$id]
       tags: [
@@ -159,12 +155,25 @@ export const GetSchedulerLocation: TypedDocumentNode<GetSchedulerLocationType, {
   }
 `;
 
+export const GetSpawnedByCount: TypedDocumentNode<GetTransactionsCountType, { process: string }> = gql`
+  query GetSpawnedByCount ($process: String!) {
+    transactions(
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+        { name: "Type", values: ["Process"] }
+        { name: "From-Process", values: [$process] }
+      ]
+    ) {
+      count
+    }
+  }
+`;
+
 export interface GetSpawnedByType {
   transactions: {
     pageInfo: {
       hasNextPage: boolean;
     };
-    count: string;
     edges: {
       node: {
         id: string;
@@ -190,7 +199,6 @@ export const GetSpawnedBy: TypedDocumentNode<GetSpawnedByType, { process: string
       pageInfo {
         hasNextPage
       }
-      count
       edges {
         node {
           id
@@ -245,7 +253,6 @@ export interface GetProcessesForModuleType {
     pageInfo: {
       hasNextPage: boolean;
     };
-    count: string;
     edges: {
       node: {
         id: string;
@@ -274,7 +281,6 @@ export const GetProcessesForModule: TypedDocumentNode<GetProcessesForModuleType,
       pageInfo {
         hasNextPage
       }
-      count
       edges {
         node {
           id
@@ -292,6 +298,20 @@ export const GetProcessesForModule: TypedDocumentNode<GetProcessesForModuleType,
         }
         cursor
       }
+    }
+  }
+`;
+
+export const GetProcessesForModuleCount: TypedDocumentNode<GetTransactionsCountType, { module: string }> = gql`
+  query GetProcessesForModuleCount ($module: String!) {
+    transactions(
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+        { name: "Type", values: ["Process"] }
+        { name: "Module", values: [$module] }
+      ]
+    ) {
+      count
     }
   }
 `;

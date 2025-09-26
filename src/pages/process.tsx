@@ -1,5 +1,4 @@
 import { Copy, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper, Tables } from "../components/Page";
-import { DownloadIcon } from "@iconicicons/react";
 import { createDataItemSigner, message, dryrun, result } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import { formatAddress, getTagValue } from "../utils/format";
@@ -11,23 +10,27 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import isYesterday from "dayjs/plugin/isYesterday";
 import weekOfYear from "dayjs/plugin/weekOfYear";
 import { BookmarkIcon } from "@iconicicons/react";
-import { useGateway } from "../utils/hooks";
 import isToday from "dayjs/plugin/isToday";
 import { Link } from "wouter";
 import { styled } from "@linaria/react";
 import { LoadingStatus } from "./index";
 import Table from "../components/Table";
 import dayjs from "dayjs";
-import { Message } from "./interaction";
 import { Quantity } from "ao-tokens-lite";
 import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
-import { GetEvalMessages, GetIncomingMessagesCount, GetOutgoingMessages, GetTransfersFor, TransactionNode } from "../queries/messages";
-import { GetSchedulerLocation, GetSpawnedBy, Tag } from "../queries/processes";
-import { useApolloClient, useQuery } from "@apollo/client";
+import { GetEvalMessages, GetEvalMessagesCount, GetIncomingMessagesCount, GetOutgoingMessages, GetOutgoingMessagesCount, GetTransfersFor, TransactionNode } from "../queries/messages";
+import { GetSchedulerLocation, GetSpawnedBy, GetSpawnedByCount } from "../queries/processes";
+import { useApolloClient, useQuery as useApolloQuery } from "@apollo/client";
 import EntityLink from "../components/EntityLink";
 import { wellKnownTokens } from "../ao/well_known";
+import { Message, Tag } from "../ao/types";
+import useGateway from "../hooks/useGateway";
+import useInfo from "../hooks/useInfo";
+import { useQuery } from "@tanstack/react-query";
+import TransferAmount from "../components/TransferAmount";
+import { defaultGraphqlTransactions } from "../queries/base";
 
 dayjs.extend(relativeTime);
 dayjs.extend(advancedFormat);
@@ -41,15 +44,6 @@ interface Process {
   module: string;
   block: number;
   timestamp: number;
-  cursor: string;
-}
-
-interface Eval {
-  id: string;
-  from: string;
-  action: string;
-  block: number;
-  time?: number;
   cursor: string;
 }
 
@@ -89,21 +83,21 @@ export default function Process({ initTx }: Props) {
     }
   }, [tags, initTx]);
 
-  const [schedulerURL, setSchedulerURL] = useState<URL>();
+  const { data: schedulerLocationData } = useApolloQuery(GetSchedulerLocation, {
+    variables: { id: tags.Scheduler }
+  });
+  const schedulerURL = useMemo(
+    () => {
+      const url = getTagValue(
+        "Url",
+        schedulerLocationData?.transactions?.edges?.[0]?.node?.tags || []
+      );
 
-  useEffect(() => {
-    (async () => {
-      const res = await client.query({
-        query: GetSchedulerLocation,
-        variables: { id: tags.Scheduler }
-      });
-
-      const url = res?.data?.transactions?.edges?.[0]?.node?.tags?.find((t) => t.name === "Url")?.value;
-      if (!url) return;
-
-      setSchedulerURL(new URL(url));
-    })();
-  }, [tags, initTx, gateway]);
+      if (!url) return undefined;
+      return new URL(url);
+    },
+    [schedulerLocationData]
+  );
 
   const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "evals" | "transfers" | "balances" | "holders" | "query" | "info">("incoming");
 
@@ -135,138 +129,70 @@ export default function Process({ initTx }: Props) {
     setHasMoreIncoming(true);
   }, [id]);
 
-  const { data: incomingCountData } = useQuery(GetIncomingMessagesCount, {
+  const { data: incomingCountData } = useApolloQuery(GetIncomingMessagesCount, {
     variables: { process: id }
   });
   const incomingCount = useMemo(
-    () => incomingCountData?.transactions?.count,
+    () => {
+      const raw = parseInt(incomingCountData?.transactions?.count || "0");
+      return raw.toLocaleString();
+    },
     [incomingCountData]
   );
 
-  const [hasMoreOutgoing, setHasMoreOutgoing] = useState(true);
-  const [outgoing, setOutgoing] = useState<OutgoingInteraction[]>([]);
-  const [outgoingCount, setOutgoingCount] = useState<string | undefined>();
+  const {
+    data: outgoing = defaultGraphqlTransactions,
+    fetchMore: fetchMoreOutgoing
+  } = useApolloQuery(GetOutgoingMessages, {
+    variables: { process: id }
+  });
 
-  async function fetchOutgoing() {
-    const res = await client.query({
-      query: GetOutgoingMessages,
-      variables: {
-        process: id,
-        cursor: outgoing[outgoing.length - 1]?.cursor
-      }
-    });
+  const { data: outgoingCountData } = useApolloQuery(GetOutgoingMessagesCount, {
+    variables: { process: id }
+  });
+  const outgoingCount = useMemo(
+    () => {
+      const raw = parseInt(outgoingCountData?.transactions?.count || "0");
+      return raw.toLocaleString();
+    },
+    [outgoingCountData]
+  );
 
-    setOutgoingCount(res.data.transactions.count);
-    setHasMoreOutgoing(res.data.transactions.pageInfo.hasNextPage);
-    setOutgoing((val) => {
-      // manually filter out duplicate transactions
-      // for some reason, the ar.io nodes return the
-      // same transaction multiple times for certain
-      // queries
-      for (const tx of res.data.transactions.edges) {
-        if (val.find((t) => t.id === tx.node.id)) continue;
-        val.push({
-          id: tx.node.id,
-          target: tx.node.recipient,
-          action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
-          block: tx.node.block?.height || 0,
-          time: tx.node.block?.timestamp,
-          cursor: tx.cursor
-        });
-      }
+  const {
+    data: spawns = defaultGraphqlTransactions,
+    fetchMore: fetchMoreSpawns
+  } = useApolloQuery(GetSpawnedBy, {
+    variables: { process: id }
+  });
 
-      return val;
-    });
-  }
+  const { data: spawnsCountData } = useApolloQuery(GetSpawnedByCount, {
+    variables: { process: id }
+  });
+  const spawnsCount = useMemo(
+    () => {
+      const raw = parseInt(spawnsCountData?.transactions?.count || "0");
+      return raw.toLocaleString();
+    },
+    [spawnsCountData]
+  );
 
-  useEffect(() => {
-    setOutgoing([]);
-    setHasMoreOutgoing(true);
-    setOutgoingCount(undefined);
-    fetchOutgoing();
-  }, [id, gateway]);
+  const {
+    data: evals = defaultGraphqlTransactions,
+    fetchMore: fetchMoreEvals
+  } = useApolloQuery(GetEvalMessages, {
+    variables: { process: id }
+  });
 
-  const [hasMoreSpawns, setHasMoreSpawns] = useState(true);
-  const [spawns, setSpawns] = useState<Process[]>([]);
-  const [spawnsCount, setSpawnsCount] = useState<string | undefined>();
-
-  async function fetchSpawns() {
-    const res = await client.query({
-      query: GetSpawnedBy,
-      variables: {
-        process: id,
-        cursor: spawns[spawns.length - 1]?.cursor
-      }
-    });
-
-    setSpawnsCount(res.data.transactions.count);
-    setHasMoreSpawns(res.data.transactions.pageInfo.hasNextPage);
-    setSpawns((val) => {
-      for (const tx of res.data.transactions.edges) {
-        if (val.find((t) => t.id === tx.node.id)) continue;
-        val.push({
-          id: tx.node.id,
-          name: getTagValue("Name", tx.node.tags) || "",
-          module: getTagValue("Module", tx.node.tags) || "",
-          block: tx.node.block?.height || 0,
-          timestamp: (tx.node.block?.timestamp || 0) * 1000,
-          cursor: tx.cursor
-        });
-      }
-
-      return val;
-    });
-  }
-
-  useEffect(() => {
-    setSpawns([]);
-    setHasMoreSpawns(true);
-    setSpawnsCount(undefined);
-    fetchSpawns();
-  }, [id, gateway]);
-
-  const [hasMoreEvals, setHasMoreEvals] = useState(true);
-  const [evals, setEvals] = useState<Eval[]>([]);
-  const [evalsCount, setEvalsCount] = useState<string | undefined>();
-
-  async function fetchEvals() {
-    const res = await client.query({
-      query: GetEvalMessages,
-      variables: {
-        process: id,
-        cursor: evals[evals.length - 1]?.cursor
-      }
-    });
-
-    setEvalsCount(res.data.transactions.count);
-    setHasMoreEvals(res.data.transactions.pageInfo.hasNextPage);
-    setEvals((val) => {
-      // manually filter out duplicate transactions
-      // for some reason, the ar.io nodes return the
-      // same transaction multiple times for certain
-      // queries
-      for (const tx of res.data.transactions.edges) {
-        if (val.find((t) => t.id === tx.node.id)) continue;
-        val.push({
-          id: tx.node.id,
-          from: getTagValue("From-Process", tx.node.tags) || tx.node.owner.address,
-          action: "Eval",
-          block: tx.node.block?.height || 0,
-          time: tx.node.block?.timestamp,
-          cursor: tx.cursor
-        });
-      }
-
-      return val;
-    });
-  }
-
-  useEffect(() => {
-    setEvals([]);
-    setHasMoreEvals(true);
-    setEvalsCount(undefined);
-    fetchEvals();
-  }, [id, gateway]);
+  const { data: evalsCountData } = useApolloQuery(GetEvalMessagesCount, {
+    variables: { process: id }
+  });
+  const evalsCount = useMemo(
+    () => {
+      const raw = parseInt(evalsCountData?.transactions?.count || "0");
+      return raw.toLocaleString();
+    },
+    [evalsCountData]
+  );
 
   const [cachedTokens, setCachedTokens] = useState<Record<string, { name: string; ticker: string; denomination: bigint; logo: string; } | "pending">>(wellKnownTokens);
   const [transfers, setTransfers] = useState<{ id: string; dir: "in" | "out"; from: string; to: string; quantity: string; token: string; time?: number; cursor: string; }[]>([]);
@@ -282,7 +208,7 @@ export default function Process({ initTx }: Props) {
       }
     });
 
-    setTransfersCount(res.data.transactions.count);
+    setTransfersCount(parseInt(res.data.transactions.count).toLocaleString());
     setHasMoreTransfers(res.data.transactions.pageInfo.hasNextPage);
     setTransfers((val) => {
       for (const tx of res.data.transactions.edges) {
@@ -294,8 +220,8 @@ export default function Process({ initTx }: Props) {
         val.push({
           id: tx.node.id,
           dir,
-          from: dir === "in" ? getTagValue("Sender", tx.node.tags) || "" : id,
-          to: dir === "out" ? getTagValue("Recipient", tx.node.tags) || "" : id,
+          from: getTagValue("Sender", tx.node.tags) || tx.node.owner.address,
+          to: getTagValue("Recipient", tx.node.tags) || tx.node.recipient,
           quantity: getTagValue("Quantity", tx.node.tags) || "0",
           token,
           time: tx.node.block?.timestamp,
@@ -340,38 +266,7 @@ export default function Process({ initTx }: Props) {
     fetchTransfers();
   }, [id, gateway]);
 
-  const [info, setInfo] = useState<Record<string, string> | undefined>();
-
-  useEffect(() => {
-    (async () => {
-      setInfo(undefined);
-
-      const res = await dryrun({
-        process: id,
-        tags: [{ name: "Action", value: "Info" }]
-      });
-
-      if (!res?.Messages || res.Messages.length === 0) {
-        return setInfo(undefined);
-      }
-
-      const infoRes: Message = res.Messages.find((msg: Message) => !!msg.Tags.find((t) => t.name === "Name")?.value) || res.Messages[0];
-      const newInfo: Record<string, string> = {};
-
-      if (infoRes.Data && infoRes.Data !== "") {
-        try {
-          newInfo.Data = JSON.stringify(JSON.parse(infoRes.Data), null, 2);
-        } catch {
-          newInfo.Data = infoRes.Data;
-        }
-      }
-      for (const tag of infoRes.Tags) {
-        newInfo[tag.name] = tag.value;
-      }
-
-      setInfo(newInfo);
-    })();
-  }, [id]);
+  const { data: info } = useInfo(id);
 
   const [tokenBalances, setTokenBalances] = useState<{ token: string; balance: bigint; }[]>([]);
   const [loadingTokenBalances, setLoadingTokenBalances] = useState(true);
@@ -407,7 +302,7 @@ export default function Process({ initTx }: Props) {
           const balanceMsg: Message = balRes.messages.find(
             (msg: Message) => !!getTagValue("Balance", msg.Tags)
           );
-          const balance = BigInt(getTagValue("Balance", balanceMsg.Tags) || 0);
+          const balance = BigInt(getTagValue("Balance", balanceMsg?.Tags) || 0);
 
           if (balance > 0n) {
             val.push({
@@ -431,37 +326,35 @@ export default function Process({ initTx }: Props) {
     fetchTokenBalances();
   }, [cachedTokens]);
 
-  const [holders, setHolders] = useState<{ addr: string; balance: bigint; }[]>([]);
-
-  useEffect(() => {
-    (async () => {
+  const { data: holders = [] } = useQuery({
+    queryKey: ["token-holders", id],
+    queryFn: async () => {
       const res = await dryrun({
         process: id,
         tags: [
           { name: "Action", value: "Balances" }
         ]
       });
-      if (!res.Messages[0]?.Data || res.Messages[0].Data === "") {
-        return setHolders([]);
+
+      for (const msg of res.Messages as Message[]) {
+        if (!msg.Data || msg.Data === "") continue;
+
+        try {
+          const holdersObj = JSON.parse(msg.Data) as Record<string, string>;
+
+          return Object.entries(holdersObj)
+            .map(([holder, balance]) => ({
+              addr: holder,
+              balance: BigInt(balance || 0)
+            }))
+            .sort((a, b) => a.balance > b.balance ? -1 : 1);
+        } catch {}
       }
 
-      try {
-        const balances: { addr: string; balance: bigint; }[] = [];
-
-        for (const [holder, bal] of Object.entries(JSON.parse(res.Messages[0].Data))) {
-          balances.push({
-            addr: holder,
-            balance: BigInt(bal as string || 0)
-          });
-        }
-
-        setHolders(balances.sort((a, b) => a.balance > b.balance ? -1 : 1));
-      } catch {
-        // not balances obj
-        setHolders([]);
-      }
-    })();
-  }, [id]);
+      return [];
+    },
+    staleTime: 2 * 60 * 1000
+  });
 
   const address = useActiveAddress();
   const messageSchema = useMemo(
@@ -759,10 +652,10 @@ export default function Process({ initTx }: Props) {
       <ProcessTitle>
         Process
         {// @ts-expect-error
-          !!(info?.Name || tags.Name || (cachedTokens[id] !== "pending" && cachedTokens[id]?.name )) && (
+          !!(info?.Tags?.Name || tags.Name || (cachedTokens[id] !== "pending" && cachedTokens[id]?.name )) && (
           <ProcessName>
-            {info?.Name || tags.Name || (cachedTokens[id] as any)?.name}
-            {(info?.Logo || (cachedTokens[id] as any)?.logo) && <TokenLogo src={`${gateway}/${info?.Logo || (cachedTokens[id] as any)?.logo}`} draggable={false} />}
+            {info?.Tags?.Name || tags.Name || (cachedTokens[id] as any)?.name}
+            {(info?.Tags?.Logo || (cachedTokens[id] as any)?.logo) && <TokenLogo src={`${gateway}/${info?.Tags?.Logo || (cachedTokens[id] as any)?.logo}`} draggable={false} />}
             <BookmarkProcess filled={isMarked} onClick={toggleBookmark} />
           </ProcessName>
         )}
@@ -798,9 +691,8 @@ export default function Process({ initTx }: Props) {
               {(schedulerURL?.host && (
                 <>
                 {schedulerURL.host}
-                  {" ("}
+                  {" / "}
                   <EntityLink address={tags.Scheduler} />
-                  {")"}
                 </>
               )) || (
                 <EntityLink address={tags.Scheduler} />
@@ -819,15 +711,6 @@ export default function Process({ initTx }: Props) {
                   />
                 ))}
               </TagsWrapper>
-            </td>
-          </tr>
-          <tr>
-            <td>Memory</td>
-            <td>
-              <a href={`https://ao-cu-1.onrender.com/state/${id}`}>
-                Download
-                <DownloadIcon />
-              </a>
             </td>
           </tr>
         </Table>
@@ -905,7 +788,7 @@ export default function Process({ initTx }: Props) {
             >
               Holders
               <InteractionsCount>
-                {holders.filter(h => h.balance > 0n).length}
+                {holders.filter(h => h.balance > 0n).length.toLocaleString()}
               </InteractionsCount>
             </InteractionsMenuItem>
           )}
@@ -931,10 +814,10 @@ export default function Process({ initTx }: Props) {
         <QueryTab>
           <div>
             <TagsWrapper>
-              {Object.keys(info).map((name, i) => name !== "Data" && info[name] !== "" && (
+              {Object.keys(info.Tags).map((name, i) => name !== "Data" && info.Tags[name] !== "" && (
                 <TagEl
                   name={name}
-                  value={info[name]}
+                  value={info.Tags[name]}
                   key={i}
                 />
               ))}
@@ -944,7 +827,7 @@ export default function Process({ initTx }: Props) {
             theme="vs-dark"
             defaultLanguage="json"
             defaultValue={"{}\n"}
-            value={(info?.Data || "{}") + "\n"}
+            value={(info.Data || "{}") + "\n"}
             options={{ minimap: { enabled: false }, readOnly: true }}
           />
         </QueryTab>
@@ -1003,12 +886,12 @@ export default function Process({ initTx }: Props) {
               </td>
               <td style={{ display: "flex", alignItems: "center" }}>
                 <span>
-                  {formatQuantity(new Quantity(item.balance, BigInt(info?.Denomination || 12)))}
+                  {formatQuantity(new Quantity(item.balance, BigInt(info?.Tags?.Denomination || 12)))}
                 </span>
-                {info?.Ticker && (
+                {info?.Tags?.Ticker && (
                   <TokenTicker>
-                    {info.Logo && <TokenIcon src={`${gateway}/${info.Logo}`} draggable={false} />}
-                    {info.Ticker}
+                    {info.Tags.Logo && <TokenIcon src={`${gateway}/${info.Tags.Logo}`} draggable={false} />}
+                    {info.Tags.Ticker}
                   </TokenTicker>
                 )}
               </td>
@@ -1092,19 +975,11 @@ export default function Process({ initTx }: Props) {
                   <EntityLink address={transfer.to} />
                 </td>
                 <td>
-                  <Link to={`#/${transfer.token}`}>
-                    <span style={{ color: transfer.dir === "out" ? "#ff0000" : "#00db5f" }}>
-                      {transfer.dir === "out" ? "-" : "+"}
-                      {//@ts-expect-error
-                        formatQuantity(new Quantity(transfer.quantity, cachedTokens[transfer.token] !== "pending" ? cachedTokens[transfer.token]?.denomination || 12n : 12n))}
-                    </span>
-                    {typeof cachedTokens[transfer.token] !== "undefined" && cachedTokens[transfer.token] !== "pending" && (
-                      <TokenTicker>
-                        <TokenIcon src={`${gateway}/${(cachedTokens[transfer.token] as any).logo}`} draggable={false} />
-                        {(cachedTokens[transfer.token] as any).ticker}
-                      </TokenTicker>
-                    )}
-                  </Link>
+                  <TransferAmount
+                    token={transfer.token}
+                    quantity={transfer.quantity}
+                    direction={transfer.dir}
+                  />
                 </td>
                 <td>
                   {formatTimestamp(transfer.time ? transfer.time * 1000 : undefined)}
@@ -1173,9 +1048,13 @@ export default function Process({ initTx }: Props) {
       )}
       {interactionsMode === "spawns" && (
         <InfiniteScroll
-          dataLength={spawns.length}
-          next={fetchSpawns}
-          hasMore={hasMoreSpawns}
+          dataLength={spawns.transactions.edges.length}
+          next={() => fetchMoreSpawns({
+            variables: {
+              cursor: spawns.transactions.edges[spawns.transactions.edges.length - 1].cursor
+            }
+          })}
+          hasMore={spawns.transactions.pageInfo.hasNextPage}
           loader={<LoadingStatus>Loading...</LoadingStatus>}
           endMessage={
             <LoadingStatus>
@@ -1192,25 +1071,25 @@ export default function Process({ initTx }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {spawns.map((process, i) => (
+            {spawns.transactions.edges.map((process, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/${process.id}`}>
-                    {formatAddress(process.id)}
+                  <Link to={`#/${process.node.id}`}>
+                    {formatAddress(process.node.id)}
                   </Link>
                 </td>
                 <td>
-                  {process.name}
+                  {getTagValue("Name", process.node.tags) || ""}
                 </td>
                 <td>
-                  <EntityLink address={process.module} />
+                  <EntityLink address={getTagValue("Module", process.node.tags) || ""} />
                 </td>
                 <td>
-                  <Link to={`#/${process.block}`}>{process.block}</Link>
+                  <Link to={`#/${process.node.block?.height || 0}`}>{process.node.block?.height || 0}</Link>
                 </td>
                 <td>
-                  {formatTimestamp(process.timestamp)}
+                  {formatTimestamp((process.node.block?.timestamp || 0) * 1000)}
                 </td>
               </tr>
             ))}
@@ -1219,9 +1098,13 @@ export default function Process({ initTx }: Props) {
       )}
       {interactionsMode === "outgoing" && (
         <InfiniteScroll
-          dataLength={outgoing.length}
-          next={fetchOutgoing}
-          hasMore={hasMoreOutgoing}
+          dataLength={outgoing.transactions.edges.length}
+          next={() => fetchMoreOutgoing({
+            variables: {
+              cursor: outgoing.transactions.edges[outgoing.transactions.edges.length - 1].cursor
+            }
+          })}
+          hasMore={outgoing.transactions.pageInfo.hasNextPage}
           loader={<LoadingStatus>Loading...</LoadingStatus>}
           endMessage={
             <LoadingStatus>
@@ -1238,25 +1121,25 @@ export default function Process({ initTx }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {outgoing.map((interaction, i) => (
+            {outgoing.transactions.edges.map((tx, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/${interaction.id}`}>
-                    {formatAddress(interaction.id)}
+                  <Link to={`#/${tx.node.id}`}>
+                    {formatAddress(tx.node.id)}
                   </Link>
                 </td>
                 <td>
-                  {interaction.action}
+                  {getTagValue("Action", tx.node.tags) || "-"}
                 </td>
                 <td>
-                  <EntityLink address={interaction.target} />
+                  <EntityLink address={tx.node.recipient} />
                 </td>
                 <td>
-                  <Link to={`#/${interaction.block}`}>{interaction.block}</Link>
+                  <Link to={`#/${tx.node.block?.height || 0}`}>{tx.node.block?.height || 0}</Link>
                 </td>
                 <td>
-                  {formatTimestamp(interaction.time && interaction.time * 1000)}
+                  {tx.node.block ? formatTimestamp(tx.node.block.timestamp * 1000) : "Just now"}
                 </td>
               </tr>
             ))}
@@ -1265,9 +1148,13 @@ export default function Process({ initTx }: Props) {
       )}
       {interactionsMode === "evals" && (
         <InfiniteScroll
-          dataLength={evals.length}
-          next={fetchEvals}
-          hasMore={hasMoreEvals}
+          dataLength={evals.transactions.edges.length}
+          next={() => fetchMoreEvals({
+            variables: {
+              cursor: evals.transactions.edges[evals.transactions.edges.length - 1].cursor
+            }
+          })}
+          hasMore={evals.transactions.pageInfo.hasNextPage}
           loader={<LoadingStatus>Loading...</LoadingStatus>}
           endMessage={
             <LoadingStatus>
@@ -1284,25 +1171,25 @@ export default function Process({ initTx }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {evals.map((interaction, i) => (
+            {evals.transactions.edges.map((interaction, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/${interaction.id}`}>
-                    {formatAddress(interaction.id)}
+                  <Link to={`#/${interaction.node.id}`}>
+                    {formatAddress(interaction.node.id)}
                   </Link>
                 </td>
                 <td>
-                  {interaction.action}
+                  Eval
                 </td>
                 <td>
-                  <EntityLink address={interaction.from} />
+                  <EntityLink address={getTagValue("From-Process", interaction.node.tags) || interaction.node.owner.address} />
                 </td>
                 <td>
-                  <Link to={`#/${interaction.block}`}>{interaction.block}</Link>
+                  <Link to={`#/${interaction.node.block?.height || 0}`}>{interaction.node.block?.height || 0}</Link>
                 </td>
                 <td>
-                  {formatTimestamp(interaction.time && interaction.time * 1000)}
+                  {formatTimestamp(interaction.node.block?.timestamp && interaction.node.block.timestamp * 1000)}
                 </td>
               </tr>
             ))}
@@ -1381,15 +1268,6 @@ const QueryInput = styled.textarea`
 
 interface Props {
   initTx: TransactionNode;
-}
-
-interface OutgoingInteraction {
-  id: string;
-  target: string;
-  action: string;
-  block: number;
-  time?: number;
-  cursor: string;
 }
 
 export const TokenTicker = styled.span`

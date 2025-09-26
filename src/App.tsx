@@ -5,7 +5,7 @@ import { ArweaveWalletKit } from "@arweave-wallet-kit/react";
 import { pathToRegexp, Key } from "path-to-regexp";
 import { Router, Route, Switch, Redirect } from "wouter";
 import makeCachedMatcher from "wouter/matcher";
-import { useGateway } from "./utils/hooks";
+import useGateway from "./hooks/useGateway";
 import useHashLocation from "./utils/hash";
 import { styled } from "@linaria/react";
 import { css } from "@linaria/core";
@@ -19,6 +19,7 @@ import { CurrentTransactionProvider } from "./components/CurrentTransactionProvi
 import Entity from "./pages/entity";
 import Block from "./pages/block";
 import Footer from "./components/Footer";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const convertPathToRegexp = (path: string) => {
   let keys: Key[] = [];
@@ -28,18 +29,26 @@ const convertPathToRegexp = (path: string) => {
 };
 
 const customMatcher = makeCachedMatcher(convertPathToRegexp);
+const queryClient = new QueryClient();
 
 function App() {
   const gateway = useGateway();
-  const [apolloClient, setApolloClient] = useState<ApolloClient<NormalizedCacheObject> | undefined>();
+  const [apolloAoClient, setAoApolloClient] = useState<ApolloClient<NormalizedCacheObject> | undefined>();
+  const [apolloArClient, setArApolloClient] = useState<ApolloClient<NormalizedCacheObject> | undefined>();
 
   useEffect(() => {
-    setupApollo()
-      .then((client) => setApolloClient(client))
-      .catch((e) => console.log("Failed to setup Apollo Client: " + (e?.message || e)));
+    setupApollo("https://ao-search-gateway.goldsky.com/graphql")
+      .then((client) => setAoApolloClient(client))
+      .catch((e) => console.log("Failed to setup Apollo AO Client: " + (e?.message || e)));
   }, []);
 
-  if (!apolloClient) return <></>;
+  useEffect(() => {
+    setupApollo("https://arweave-search.goldsky.com/graphql")
+      .then((client) => setArApolloClient(client))
+      .catch((e) => console.log("Failed to setup Apollo Arweave Client: " + (e?.message || e)));
+  }, []);
+
+  if (!apolloAoClient || !apolloArClient) return <></>;
 
   return (
     <ArweaveWalletKit
@@ -70,7 +79,7 @@ function App() {
         }
       }}
     >
-      <ApolloProvider client={apolloClient}>
+      <QueryClientProvider client={queryClient}>
         <CurrentTransactionProvider>
           <MarkedProvider>
             <>
@@ -79,13 +88,27 @@ function App() {
                 <Nav />
                 <Main>
                   <Switch>
-                    <Route path="/" component={Home} />
+                    <Route path="/">
+                      <ApolloProvider client={apolloAoClient}>
+                        <Home />
+                      </ApolloProvider>
+                    </Route>
                     <Route path="/:id([a-zA-Z0-9_-]{43})">
-                      {(props) => <Entity id={props.id} />}
+                      {(props) =>
+                        <Entity
+                          id={props.id}
+                          apolloAoClient={apolloAoClient}
+                          apolloArClient={apolloArClient}
+                        />
+                      }
                     </Route>
-                    <Route path="/:height([0-9]+)">
-                      {(props) => <Block height={props.height} />}
-                    </Route>
+                      <Route path="/:height([0-9]+)">
+                        {(props) => (
+                          <ApolloProvider client={apolloArClient}>
+                            <Block height={props.height} />
+                          </ApolloProvider>
+                        )}
+                      </Route>
                     <Route path="/message/:message">
                       {(props) => <Redirect to={`/${props.message}`} />}
                     </Route>
@@ -102,7 +125,7 @@ function App() {
             </>
           </MarkedProvider>
         </CurrentTransactionProvider>
-      </ApolloProvider>
+      </QueryClientProvider>
     </ArweaveWalletKit>
   );
 }

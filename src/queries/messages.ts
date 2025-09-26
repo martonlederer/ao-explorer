@@ -1,5 +1,5 @@
 import { gql, TypedDocumentNode } from "@apollo/client";
-import { Tag } from "./processes";
+import { Tag } from "../ao/types";
 
 export interface Block {
   height: number;
@@ -26,6 +26,12 @@ export interface TransactionNode {
   };
   recipient: string;
   block?: Block;
+}
+
+export interface GetTransactionsCountType {
+  transactions: {
+    count: string;
+  };
 }
 
 export interface GetMessageType {
@@ -140,13 +146,7 @@ export const GetLinkedMessages: TypedDocumentNode<GetMessageWithCountType, { pus
   }
 `;
 
-interface GetIncomingMessagesCountType {
-  transactions: {
-    count: string;
-  };
-}
-
-export const GetIncomingMessagesCount: TypedDocumentNode<GetIncomingMessagesCountType, { process: string; }> = gql`
+export const GetIncomingMessagesCount: TypedDocumentNode<GetTransactionsCountType, { process: string; }> = gql`
   query GetIncomingMessagesCount ($process: String!) {
     transactions(
       recipients: [$process]
@@ -159,13 +159,7 @@ export const GetIncomingMessagesCount: TypedDocumentNode<GetIncomingMessagesCoun
   }
 `;
 
-interface GetEvalMessagesType extends GetAllMessagesType {
-  transactions: GetAllMessagesType["transactions"] & {
-    count: string;
-  };
-}
-
-export const GetEvalMessages: TypedDocumentNode<GetEvalMessagesType, { process: string; cursor?: string }> = gql`
+export const GetEvalMessages: TypedDocumentNode<GetAllMessagesType, { process: string; cursor?: string }> = gql`
   query GetEvalMessages ($process: String!, $cursor: String) {
     transactions(
       recipients: [$process]
@@ -179,7 +173,6 @@ export const GetEvalMessages: TypedDocumentNode<GetEvalMessagesType, { process: 
       pageInfo {
         hasNextPage
       }
-      count
       edges {
         node {
           id
@@ -201,12 +194,25 @@ export const GetEvalMessages: TypedDocumentNode<GetEvalMessagesType, { process: 
   }
 `;
 
+export const GetEvalMessagesCount: TypedDocumentNode<GetTransactionsCountType, { process: string }> = gql`
+  query GetEvalMessagesCount ($process: String!) {
+    transactions(
+      recipients: [$process]
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+        { name: "Action", values: ["Eval"] }
+      ]
+    ) {
+      count
+    }
+  }
+`;
+
 interface GetOutgoingMessagesType {
   transactions: {
     pageInfo: {
       hasNextPage: boolean;
     };
-    count: string;
     edges: {
       node: Omit<TransactionNode, "owner">;
       cursor: string;
@@ -227,7 +233,6 @@ export const GetOutgoingMessages: TypedDocumentNode<GetOutgoingMessagesType, { p
       pageInfo {
         hasNextPage
       }
-      count
       edges {
         node {
           id
@@ -247,6 +252,19 @@ export const GetOutgoingMessages: TypedDocumentNode<GetOutgoingMessagesType, { p
   }
 `;
 
+export const GetOutgoingMessagesCount: TypedDocumentNode<GetTransactionsCountType, { process: string; }> = gql`
+  query GetOutgoingMessagesCount ($process: String!) {
+    transactions(
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+        { name: "From-Process", values: [$process] }
+      ]
+    ) {
+      count
+    }
+  }
+`;
+
 interface GetTransfersForType {
   transactions: {
     pageInfo: {
@@ -254,7 +272,7 @@ interface GetTransfersForType {
     };
     count: string;
     edges: {
-      node: Omit<TransactionNode, "recipient">;
+      node: TransactionNode;
       cursor: string;
     }[];
   };
@@ -286,6 +304,9 @@ export const GetTransfersFor: TypedDocumentNode<GetTransfersForType, { process: 
           block {
             height
             timestamp
+          }
+          owner {
+            address
           }
           recipient
         }

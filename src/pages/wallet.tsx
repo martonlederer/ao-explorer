@@ -1,12 +1,9 @@
 import { Copy, ProcessID, ProcessName, ProcessTitle, Space, Tables, TokenLogo, Wrapper } from "../components/Page";
 import { useEffect, useState } from "react";
-import { useGateway } from "../utils/hooks";
 import { Quantity } from "ao-tokens-lite";
 import Table, { TransactionType } from "../components/Table";
-// @ts-expect-error
-import { ARIO } from "@ar.io/sdk/web";
 import { dryrun } from "@permaweb/aoconnect";
-import { GetOwnedProcesses, Tag } from "../queries/processes";
+import { GetOwnedProcesses } from "../queries/processes";
 import { styled } from "@linaria/react";
 import { InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, TokenIcon, TokenTicker, formatTimestamp } from "./process";
 import { useApolloClient } from "@apollo/client";
@@ -14,13 +11,14 @@ import { FullTransactionNode, GetIncomingTransactions, GetOutgoingTransactions }
 import InfiniteScroll from "react-infinite-scroll-component";
 import { LoadingStatus } from ".";
 import { Link } from "wouter";
-import { formatAddress, formatQuantity, getTagValue } from "../utils/format";
+import { formatAddress, formatQuantity, formatTokenQuantity, getTagValue } from "../utils/format";
 import EntityLink from "../components/EntityLink";
 import { wellKnownTokens } from "../ao/well_known";
 import { GetTransfersFor, TransactionNode } from "../queries/messages";
-import { Message } from "./interaction";
-
-const ario = ARIO.mainnet();
+import { Message } from "../ao/types";
+import useGateway from "../hooks/useGateway";
+import { useQuery } from "@tanstack/react-query";
+import usePrimaryName from "../hooks/usePrimaryName";
 
 export interface TransactionListItem {
   type: "Message" | "Process" | "Module" | "Assignment" | "Bundle" | undefined;
@@ -36,29 +34,24 @@ export interface TransactionListItem {
 
 export default function Wallet({ address }: Props) {
   const gateway = useGateway();
-  const [arBalance, setArBalance] = useState("0");
 
-  useEffect(() => {
-    (async () => {
-      setArBalance("0");
-
+  const { data: arBalance = "0" } = useQuery({
+    queryKey: ["wallet-balance-ar", address, gateway],
+    queryFn: async () => {
       const res = await (
         await fetch(`${gateway}/wallet/${address}/balance`)
       ).text();
       const balanceQty = new Quantity(res || "0", 12n);
 
-      setArBalance(balanceQty.toLocaleString(undefined, {
-        maximumFractionDigits: Quantity.lt(balanceQty, new Quantity(1n, 0n)) ? 12 : 4
-      }));
-    })();
-  }, [address, gateway]);
+      return formatTokenQuantity(balanceQty);
+    },
+    select: (val) => val || "0",
+    staleTime: 3 * 60 * 1000
+  });
 
-  const [aoBalance, setAoBalance] = useState("0");
-
-  useEffect(() => {
-    (async () => {
-      setAoBalance("0");
-
+  const { data: aoBalance = "0" } = useQuery({
+    queryKey: ["wallet-balance-ao", address, gateway],
+    queryFn: async () => {
       const res = await dryrun({
         process: "0syT13r0s0tgPmIed95bJnuSqaD29HQNN8D3ElLSrsc",
         Owner: address,
@@ -67,26 +60,22 @@ export default function Wallet({ address }: Props) {
           { name: "Recipient", value: address }
         ]
       });
-      if (!res.Messages[0]) return;
-      const balanceQty = new Quantity(res.Messages[0].Tags.find((t: Tag) => t.name === "Balance")?.value || "0", 12n);
 
-      setAoBalance(balanceQty.toLocaleString(undefined, {
-        maximumFractionDigits: Quantity.lt(balanceQty, new Quantity(1n, 0n)) ? 12 : 4
-      }));
-    })();
-  }, [address]);
+      for (const msg of res.Messages as Message[]) {
+        const rawQty = getTagValue("Balance", msg.Tags);
+        if (!rawQty) continue;
+        const qty = new Quantity(rawQty, 12n);
 
-  const [arnsName, setArnsName] = useState<string | undefined>();
+        return formatTokenQuantity(qty);
+      }
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setArnsName(undefined);
-        const res = await ario.getPrimaryName({ address });
-        setArnsName(res?.name);
-      } catch {}
-    })();
-  }, [address]);
+      return "0";
+    },
+    select: (val) => val || "0",
+    staleTime: 3 * 60 * 1000
+  });
+
+  const { data: arnsName } = usePrimaryName(address);
 
   const [interactionsMode, setInteractionsMode] = useState<"incoming" | "outgoing" | "spawns" | "transfers" | "balances">("incoming");
 
@@ -312,7 +301,7 @@ export default function Wallet({ address }: Props) {
 
       setTokenBalances((val) => {
         for (const balRes of res) {
-          if (!balRes || !!val.find((t) => t.token === balRes.token)) continue;
+          if (!balRes?.messages || !!val.find((t) => t.token === balRes.token)) continue;
           const balanceMsg: Message = balRes.messages.find(
             (msg: Message) => !!getTagValue("Balance", msg.Tags)
           );

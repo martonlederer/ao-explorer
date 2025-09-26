@@ -1,17 +1,14 @@
-import { LinkedMessageData, getLinkedMessages, useMessageGraph, useProcessGraph } from "../utils/message_graph";
+import { getLinkedMessages, useMessageGraph, useProcessGraph } from "../utils/message_graph";
 import { Copy, ProcessID, ProcessName, ProcessTitle, Space, Tables, Wrapper } from "../components/Page";
 import { InteractionsCount, InteractionsMenu, InteractionsMenuItem, InteractionsWrapper, QueryTab } from "./process";
 import { TransactionNode } from "../queries/messages";
 import { formatAddress, formatJSONOrString, getTagValue } from "../utils/format";
-import { MessageResult } from "@permaweb/aoconnect/dist/lib/result";
 import TagEl, { TagsWrapper } from "../components/Tag";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useApolloClient } from "@apollo/client";
 import { Editor } from "@monaco-editor/react";
 import { result } from "@permaweb/aoconnect";
-import { useGateway } from "../utils/hooks";
-import { Tag } from "../queries/processes";
 import { styled } from "@linaria/react";
 import Table from "../components/Table";
 import { LoadingStatus } from "./index";
@@ -21,48 +18,41 @@ import { Graph, GraphNode, GraphLink, GraphConfiguration } from "react-d3-graph"
 import { useLocation } from "wouter";
 import { useResizeDetector } from "react-resize-detector";
 import EntityLink from "../components/EntityLink";
+import { Message, Tag } from "../ao/types";
+import useGateway from "../hooks/useGateway";
+import { useQuery } from "@tanstack/react-query";
 
 dayjs.extend(relativeTime);
-
-export interface Message {
-  Anchor: string;
-  Tags: Tag[];
-  Target: string;
-  Data: string;
-}
 
 export default function Interaction({ message }: Props) {
   const gateway = useGateway();
   const client = useApolloClient();
 
-  const process = useMemo<string | undefined>(() => message.recipient, [message]);
-
   const tags = useMemo(() => Object.fromEntries(message.tags.map(t => [t.name, t.value])), [message]);
+  const from = useMemo(() => tags["From-Process"] || message.owner.address, [message, tags]);
+  const to = useMemo<string | undefined>(() => message.recipient, [message]);
 
-  const [data, setData] = useState("");
-
-  useEffect(() => {
-    (async () => {
-      setData("");
-
+  const { data = "" } = useQuery({
+    queryKey: ["message-data", message.id, gateway],
+    queryFn: async () => {
       const data = await (
         await fetch(`${gateway}/${message.id}`)
       ).text();
 
-      setData(data || "");
-    })();
-  }, [gateway, message]);
+      return data;
+    },
+    select: (data) => data || "",
+    staleTime: 10 * 60 * 1000
+  });
 
-  const [res, setRes] = useState<MessageResult>();
-
-  useEffect(() => {
-    (async () => {
-      if (!process) return;
-      setRes(undefined);
+  const { data: res } = useQuery({
+    queryKey: ["message-result", message.id, to],
+    queryFn: async () => {
+      if (!to) return;
 
       const resultData = await result({
         message: message.id,
-        process
+        process: to
       });
 
       for (const message of resultData.Messages as Message[]) {
@@ -71,14 +61,21 @@ export default function Interaction({ message }: Props) {
         } catch {}
       }
 
-      setRes(resultData);
-    })();
-  }, [process, message]);
+      return resultData;
+    },
+    enabled: !!to,
+    staleTime: 10 * 60 * 1000
+  });
 
   const { ref: graphRef, ...graphDimensions } = useResizeDetector();
 
-  const [graphData, setGraphData] = useState<LinkedMessageData | undefined>();
-  const [loadingMessages, setLoadingMessages] = useState(true);
+  const { data: graphData, isLoading: loadingMessages } = useQuery({
+    queryKey: ["graph-data", message.id, gateway],
+    queryFn: async () => {
+      return await getLinkedMessages(message, client);
+    },
+    staleTime: 10 * 60 * 1000
+  });
 
   const messageGraphRaw = useMessageGraph(graphData);
   const messageGraph = useMemo(
@@ -115,19 +112,6 @@ export default function Interaction({ message }: Props) {
     },
     [linkedMessages, messageGraph, message]
   );
-
-  useEffect(() => {
-    (async () => {
-      if (!res) return;
-      setLoadingMessages(true);
-      try {
-        const res = await getLinkedMessages(message, client);
-
-        setGraphData(res);
-      } catch {}
-      setLoadingMessages(false);
-    })();
-  }, [message, gateway, res, client]);
 
   const [messagesMode, setMessagesMode] = useState<"resulting" | "linked">("resulting");
   const [graphMode, setGraphMode] = useState<"messages" | "processes">("messages");
@@ -199,17 +183,19 @@ export default function Interaction({ message }: Props) {
         <Table>
           <tr></tr>
           <tr>
-            <td>Owner</td>
+            <td>From</td>
             <td>
-              <EntityLink address={tags["From-Process"] || message.owner.address} />
+              <EntityLink address={from} />
             </td>
           </tr>
-          <tr>
-            <td>Variant</td>
-            <td>
-              {tags.Variant}
-            </td>
-          </tr>
+          {to && (
+            <tr>
+              <td>To</td>
+              <td>
+                <EntityLink address={to} />
+              </td>
+            </tr>
+          )}
           {tags.Action && (
             <tr>
               <td>Action</td>
@@ -218,14 +204,12 @@ export default function Interaction({ message }: Props) {
               </td>
             </tr>
           )}
-          {process && (
-            <tr>
-              <td>Process</td>
-              <td>
-                <EntityLink address={process} />
-              </td>
-            </tr>
-          )}
+          <tr>
+            <td>Variant</td>
+            <td>
+              {tags.Variant}
+            </td>
+          </tr>
           {tags["Pushed-For"] && tags["From-Process"] && (
             <tr>
               <td>
@@ -276,7 +260,7 @@ export default function Interaction({ message }: Props) {
             Resulting messages
             {typeof res?.Messages?.length !== "undefined" && (
               <InteractionsCount>
-                {res.Messages.length}
+                {res.Messages.length.toLocaleString()}
               </InteractionsCount>
             )}
           </InteractionsMenuItem>
@@ -286,7 +270,7 @@ export default function Interaction({ message }: Props) {
           >
             Linked messages
             <InteractionsCount>
-              {linkedMessages.length}
+              {linkedMessages.length.toLocaleString()}
             </InteractionsCount>
           </InteractionsMenuItem>
         </InteractionsWrapper>

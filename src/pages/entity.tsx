@@ -1,32 +1,47 @@
 import { useContext, useEffect, useMemo } from "react";
 import { CurrentTransactionContext } from "../components/CurrentTransactionProvider";
-import { useQuery } from "@apollo/client";
-import { GetTransaction } from "../queries/base";
+import { ApolloClient, ApolloProvider, NormalizedCacheObject } from "@apollo/client";
 import Process from "./process";
 import Interaction from "./interaction";
 import Transaction from "./transaction";
 import Wallet from "./wallet";
 import { NotFound, Wrapper } from "../components/Page";
+import { useQuery } from "@tanstack/react-query";
+import { GetTransaction } from "../queries/base";
 
-export default function Entity({ id }: Props) {
+export default function Entity({ id, apolloAoClient, apolloArClient }: Props) {
   const [transaction, setTransaction] = useContext(CurrentTransactionContext);
   const needsFetching = useMemo(() => !transaction || transaction.id !== id, [transaction, id]);
-  const { data: queriedTx, loading } = useQuery(GetTransaction, {
-    variables: { id },
-    skip: !needsFetching
+
+  const { data: queriedTx, isLoading } = useQuery({
+    queryKey: ["entity", id],
+    queryFn: async () => {
+      const queryConfig = {
+        query: GetTransaction,
+        variables: { id }
+      };
+
+      const [aoSearchRes, arSearchRes] = await Promise.all([
+        apolloAoClient.query(queryConfig),
+        apolloArClient.query(queryConfig)
+      ]);
+
+      return arSearchRes || aoSearchRes;
+    },
+    enabled: needsFetching
   });
 
   useEffect(() => {
-    if (!needsFetching || loading || !queriedTx) return;
-    setTransaction(queriedTx.transactions.edges[0]?.node);
-  }, [needsFetching, queriedTx, loading]);
+    if (!needsFetching || isLoading || !queriedTx?.data) return;
+    setTransaction(queriedTx.data.transactions.edges[0]?.node);
+  }, [needsFetching, queriedTx, isLoading]);
 
   const type = useMemo(
     () => transaction?.tags?.find((t) => t.name === "Type")?.value,
     [transaction]
   );
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Wrapper>
         <NotFound>
@@ -36,12 +51,14 @@ export default function Entity({ id }: Props) {
     );
   };
 
-  if (!transaction) return <Wallet address={id} />;
-  else if (type === "Process") return <Process initTx={transaction} />;
-  else if (type === "Message") return <Interaction message={transaction} />;
-  else return <Transaction transaction={transaction} />;
+  if (!transaction) return <ApolloProvider client={apolloArClient}><Wallet address={id} /></ApolloProvider>;
+    else if (type === "Process") return <ApolloProvider client={apolloAoClient}><Process initTx={transaction} /></ApolloProvider>;
+      else if (type === "Message") return <ApolloProvider client={apolloAoClient}><Interaction message={transaction} /></ApolloProvider>;
+    else return <ApolloProvider client={apolloArClient}><Transaction transaction={transaction} /></ApolloProvider>;
 }
 
 interface Props {
   id: string;
+  apolloArClient: ApolloClient<NormalizedCacheObject>;
+  apolloAoClient: ApolloClient<NormalizedCacheObject>
 }

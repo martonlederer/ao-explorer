@@ -2,6 +2,7 @@ import { ClipboardIcon } from "@iconicicons/react";
 import { styled } from "@linaria/react"
 import { useLocation } from "wouter";
 import { isAddress } from "../utils/format";
+import { Tag as Props } from "../ao/types";
 
 export default function Tag({ name, value }: Props) {
   const [, setLocation] = useLocation();
@@ -69,11 +70,6 @@ const Wrapper = styled.div`
     white-space: nowrap;
   }
 `;
-
-interface Props {
-  name: string;
-  value: string;
-}
 
 export const TagsWrapper = styled.div`
   display: flex;

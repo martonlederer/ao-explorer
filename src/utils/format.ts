@@ -1,5 +1,5 @@
 import { Quantity } from "ao-tokens-lite";
-import { Tag } from "../queries/processes";
+import { Tag } from "../ao/types";
 
 export function formatAddress(address: string, count = 8) {
   return (
@@ -12,6 +12,14 @@ export function formatAddress(address: string, count = 8) {
 export const isAddress = (addr: string) => /^[a-z0-9_-]{43}$/i.test(addr) && addr.length === 43;
 
 export const getTagValue = (tagName: string, tags: Tag[]) => tags.find((t) => t.name === tagName)?.value;
+
+export function getTransactionType(tags: Tag[]) {
+  const typeValue = getTagValue("Type", tags);
+
+  if (typeValue) return typeValue;
+  if (getTagValue("Bundle-Format", tags)) return "Bundle";
+  return "Transaction";
+}
 
 export function formatJSONOrString(maybeJson: string = "{}") {
   try {
@@ -44,4 +52,9 @@ export function formatTokenQuantity(val: Quantity) {
 
   // @ts-expect-error
   return val.toLocaleString(undefined, { maximumFractionDigits });
+}
+
+export function tagsToRecord(tags?: Tag[]): Record<string, string> {
+  if (!tags) return {};
+  return Object.fromEntries(tags.map(t => [t.name, t.value]));
 }
