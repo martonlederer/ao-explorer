@@ -26,7 +26,7 @@ export default function Entity({ id, apolloAoClient, apolloArClient }: Props) {
         apolloArClient.query(queryConfig)
       ]);
 
-      return arSearchRes || aoSearchRes;
+      return (arSearchRes?.data?.transactions?.edges?.length || 0) > 0 ? arSearchRes : aoSearchRes;
     },
     enabled: needsFetching
   });
