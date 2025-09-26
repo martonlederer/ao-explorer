@@ -16,9 +16,10 @@ import InfiniteScroll from "react-infinite-scroll-component";
 import { LoadingStatus } from ".";
 import { useApolloClient } from "@apollo/client";
 import { TransactionListItem } from "./wallet";
-import { GetProcessesForModule } from "../queries/processes";
+import { GetProcessesForModule, GetProcessesForModuleCount } from "../queries/processes";
 import useGateway from "../hooks/useGateway";
 import { useQuery } from "@tanstack/react-query";
+import { useQuery as useApolloQuery } from "@apollo/client";
 
 dayjs.extend(relativeTime);
 
@@ -116,6 +117,18 @@ export default function Transaction({ transaction }: Props) {
     [tags]
   );
 
+  const { data: moduleSpawnCountData } = useApolloQuery(GetProcessesForModuleCount, {
+    variables: { module: transaction.id },
+    skip: !isModule
+  });
+  const moduleSpawnCount = useMemo(
+    () => {
+      const raw = parseInt(moduleSpawnCountData?.transactions?.count || "0");
+      return raw.toLocaleString();
+    },
+    [moduleSpawnCountData]
+  );
+
   const [hasMoreProcesses, setHasMoreProcesses] = useState(true);
   const [processes, setProcesses] = useState<Process[]>([]);
 
@@ -180,13 +193,15 @@ export default function Transaction({ transaction }: Props) {
               </td>
             </tr>
           )}
-          <tr>
-            <td>Quantity</td>
-            <td>
-              {formatQuantity(transaction.quantity.ar)}
-              {" AR"}
-            </td>
-          </tr>
+          {transaction.quantity.ar !== "0" && (
+            <tr>
+              <td>Quantity</td>
+              <td>
+                {formatQuantity(transaction.quantity.ar)}
+                {" AR"}
+              </td>
+            </tr>
+          )}
           <tr>
             <td>Fee</td>
             <td>
@@ -221,6 +236,14 @@ export default function Transaction({ transaction }: Props) {
               <td>Bundle</td>
               <td>
                 <EntityLink address={transaction.bundledIn.id} />
+              </td>
+            </tr>
+          )}
+          {isModule && (
+            <tr>
+              <td>Processes</td>
+              <td>
+                {moduleSpawnCount}
               </td>
             </tr>
           )}

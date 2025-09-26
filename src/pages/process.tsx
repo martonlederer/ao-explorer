@@ -20,7 +20,7 @@ import { Quantity } from "ao-tokens-lite";
 import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
-import { GetEvalMessages, GetIncomingMessagesCount, GetOutgoingMessages, GetOutgoingMessagesCount, GetTransfersFor, TransactionNode, defaultGetOutgoingMessages } from "../queries/messages";
+import { GetEvalMessages, GetEvalMessagesCount, GetIncomingMessagesCount, GetOutgoingMessages, GetOutgoingMessagesCount, GetTransfersFor, TransactionNode, defaultGetEvalMessages, defaultGetOutgoingMessages } from "../queries/messages";
 import { GetSchedulerLocation, GetSpawnedBy, GetSpawnedByCount, defaultGetSpawnedBy } from "../queries/processes";
 import { useApolloClient, useQuery as useApolloQuery } from "@apollo/client";
 import EntityLink from "../components/EntityLink";
@@ -183,48 +183,23 @@ export default function Process({ initTx }: Props) {
     [spawnsCountData]
   );
 
-  const [hasMoreEvals, setHasMoreEvals] = useState(true);
-  const [evals, setEvals] = useState<Eval[]>([]);
-  const [evalsCount, setEvalsCount] = useState<string | undefined>();
+  const {
+    data: evals = defaultGetEvalMessages,
+    fetchMore: fetchMoreEvals
+  } = useApolloQuery(GetEvalMessages, {
+    variables: { process: id }
+  });
 
-  async function fetchEvals() {
-    const res = await client.query({
-      query: GetEvalMessages,
-      variables: {
-        process: id,
-        cursor: evals[evals.length - 1]?.cursor
-      }
-    });
-
-    setEvalsCount(parseInt(res.data.transactions.count).toLocaleString());
-    setHasMoreEvals(res.data.transactions.pageInfo.hasNextPage);
-    setEvals((val) => {
-      // manually filter out duplicate transactions
-      // for some reason, the ar.io nodes return the
-      // same transaction multiple times for certain
-      // queries
-      for (const tx of res.data.transactions.edges) {
-        if (val.find((t) => t.id === tx.node.id)) continue;
-        val.push({
-          id: tx.node.id,
-          from: getTagValue("From-Process", tx.node.tags) || tx.node.owner.address,
-          action: "Eval",
-          block: tx.node.block?.height || 0,
-          time: tx.node.block?.timestamp,
-          cursor: tx.cursor
-        });
-      }
-
-      return val;
-    });
-  }
-
-  useEffect(() => {
-    setEvals([]);
-    setHasMoreEvals(true);
-    setEvalsCount(undefined);
-    fetchEvals();
-  }, [id, gateway]);
+  const { data: evalsCountData } = useApolloQuery(GetEvalMessagesCount, {
+    variables: { process: id }
+  });
+  const evalsCount = useMemo(
+    () => {
+      const raw = parseInt(evalsCountData?.transactions?.count || "0");
+      return raw.toLocaleString();
+    },
+    [evalsCountData]
+  );
 
   const [cachedTokens, setCachedTokens] = useState<Record<string, { name: string; ticker: string; denomination: bigint; logo: string; } | "pending">>(wellKnownTokens);
   const [transfers, setTransfers] = useState<{ id: string; dir: "in" | "out"; from: string; to: string; quantity: string; token: string; time?: number; cursor: string; }[]>([]);
@@ -1188,9 +1163,13 @@ export default function Process({ initTx }: Props) {
       )}
       {interactionsMode === "evals" && (
         <InfiniteScroll
-          dataLength={evals.length}
-          next={fetchEvals}
-          hasMore={hasMoreEvals}
+          dataLength={evals.transactions.edges.length}
+          next={() => fetchMoreEvals({
+            variables: {
+              cursor: evals.transactions.edges[evals.transactions.edges.length - 1].cursor
+            }
+          })}
+          hasMore={evals.transactions.pageInfo.hasNextPage}
           loader={<LoadingStatus>Loading...</LoadingStatus>}
           endMessage={
             <LoadingStatus>
@@ -1207,25 +1186,25 @@ export default function Process({ initTx }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {evals.map((interaction, i) => (
+            {evals.transactions.edges.map((interaction, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/${interaction.id}`}>
-                    {formatAddress(interaction.id)}
+                  <Link to={`#/${interaction.node.id}`}>
+                    {formatAddress(interaction.node.id)}
                   </Link>
                 </td>
                 <td>
-                  {interaction.action}
+                  Eval
                 </td>
                 <td>
-                  <EntityLink address={interaction.from} />
+                  <EntityLink address={getTagValue("From-Process", interaction.node.tags) || interaction.node.owner.address} />
                 </td>
                 <td>
-                  <Link to={`#/${interaction.block}`}>{interaction.block}</Link>
+                  <Link to={`#/${interaction.node.block?.height || 0}`}>{interaction.node.block?.height || 0}</Link>
                 </td>
                 <td>
-                  {formatTimestamp(interaction.time && interaction.time * 1000)}
+                  {formatTimestamp(interaction.node.block?.timestamp && interaction.node.block.timestamp * 1000)}
                 </td>
               </tr>
             ))}

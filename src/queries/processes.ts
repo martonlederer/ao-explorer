@@ -262,7 +262,6 @@ export interface GetProcessesForModuleType {
     pageInfo: {
       hasNextPage: boolean;
     };
-    count: string;
     edges: {
       node: {
         id: string;
@@ -291,7 +290,6 @@ export const GetProcessesForModule: TypedDocumentNode<GetProcessesForModuleType,
       pageInfo {
         hasNextPage
       }
-      count
       edges {
         node {
           id
@@ -309,6 +307,20 @@ export const GetProcessesForModule: TypedDocumentNode<GetProcessesForModuleType,
         }
         cursor
       }
+    }
+  }
+`;
+
+export const GetProcessesForModuleCount: TypedDocumentNode<GetTransactionsCountType, { module: string }> = gql`
+  query GetProcessesForModuleCount ($module: String!) {
+    transactions(
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+        { name: "Type", values: ["Process"] }
+        { name: "Module", values: [$module] }
+      ]
+    ) {
+      count
     }
   }
 `;
