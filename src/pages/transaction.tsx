@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Copy, ProcessID, ProcessTitle, Space, Tables, Title, Wrapper } from "../components/Page";
 import Table, { TransactionType } from "../components/Table";
 import EntityLink from "../components/EntityLink";
@@ -6,8 +6,8 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import dayjs from "dayjs";
 import TagEl, { TagsWrapper } from "../components/Tag";
 import { styled } from "@linaria/react";
-import { FullTransactionNode, GetTransactionsInBundle } from "../queries/base";
-import { formatAddress, formatJSONOrString, formatQuantity, getTagValue } from "../utils/format";
+import { FullTransactionNode, GetTransactionsInBundle, defaultGraphqlTransactions } from "../queries/base";
+import { formatAddress, formatJSONOrString, formatQuantity, getTagValue, getTransactionType } from "../utils/format";
 import { Link } from "wouter";
 import prettyBytes from "pretty-bytes";
 import { QueryTab, formatTimestamp } from "./process";
@@ -15,7 +15,6 @@ import { Editor } from "@monaco-editor/react";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { LoadingStatus } from ".";
 import { useApolloClient } from "@apollo/client";
-import { TransactionListItem } from "./wallet";
 import { GetProcessesForModule, GetProcessesForModuleCount } from "../queries/processes";
 import useGateway from "../hooks/useGateway";
 import { useQuery } from "@tanstack/react-query";
@@ -65,52 +64,15 @@ export default function Transaction({ transaction }: Props) {
     () => typeof tags["Bundle-Format"] !== "undefined" || typeof tags["Bundle-Version"] !== "undefined",
     [tags]
   );
+  const {
+    data: transactions = defaultGraphqlTransactions,
+    fetchMore: fetchMoreTransactions
+  } = useApolloQuery(GetTransactionsInBundle, {
+    variables: { bundle: transaction.id },
+    skip: !isBundle
+  });
 
   const client = useApolloClient();
-
-  const [hasMoreTransactions, setHasMoreTransactions] = useState(true);
-  const [transactions, setTransactions] = useState<TransactionListItem[]>([]);
-
-  async function fetchTransactions() {
-    if (!isBundle) return;
-    const res = await client.query({
-      query: GetTransactionsInBundle,
-      variables: {
-        bundle: transaction.id,
-        cursor: transactions[transactions.length - 1]?.cursor
-      }
-    });
-
-    setHasMoreTransactions(res.data.transactions.pageInfo.hasNextPage);
-    setTransactions((val) => {
-      // manually filter out duplicate transactions
-      // for some reason, the ar.io nodes return the
-      // same transaction multiple times for certain
-      // queries
-      for (const tx of res.data.transactions.edges) {
-        val.push({
-          // @ts-expect-error
-          type: tx.node.tags.find((tag) => tag.name === "Type")?.value || "Transaction",
-          id: tx.node.id,
-          owner: tx.node.tags.find((tag) => tag.name === "From-Process")?.value || tx.node.owner.address,
-          target: tx.node.recipient,
-          action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
-          block: tx.node.block?.height || 0,
-          time: tx.node.block?.timestamp,
-          original: tx.node,
-          cursor: tx.cursor
-        });
-      }
-
-      return val;
-    });
-  }
-
-  useEffect(() => {
-    setTransactions([]);
-    setHasMoreTransactions(true);
-    fetchTransactions();
-  }, [transaction.id, isBundle]);
 
   const isModule = useMemo(
     () => tags.Type === "Module" && tags["Data-Protocol"] === "ao",
@@ -129,41 +91,13 @@ export default function Transaction({ transaction }: Props) {
     [moduleSpawnCountData]
   );
 
-  const [hasMoreProcesses, setHasMoreProcesses] = useState(true);
-  const [processes, setProcesses] = useState<Process[]>([]);
-
-  async function fetchProcesses() {
-    const res = await client.query({
-      query: GetProcessesForModule,
-      variables: {
-        module: transaction.id,
-        cursor: processes[processes.length - 1]?.cursor
-      }
-    });
-
-    setHasMoreProcesses(res.data.transactions.pageInfo.hasNextPage);
-    setProcesses((val) => {
-      for (const tx of res.data.transactions.edges) {
-        if (val.find((t) => t.id === tx.node.id)) continue;
-        val.push({
-          id: tx.node.id,
-          name: getTagValue("Name", tx.node.tags) || "-",
-          owner: getTagValue("From-Process", tx.node.tags) || tx.node.owner.address,
-          block: tx.node.block?.height || 0,
-          time: tx.node.block?.timestamp || 0,
-          cursor: tx.cursor
-        });
-      }
-
-      return val;
-    });
-  }
-
-  useEffect(() => {
-    setProcesses([]);
-    setHasMoreProcesses(true);
-    fetchProcesses();
-  }, [transaction.id, isModule]);
+  const {
+    data: processes = defaultGraphqlTransactions,
+    fetchMore: fetchMoreProcesses
+  } = useApolloQuery(GetProcessesForModule, {
+    variables: { module: transaction.id },
+    skip: !isModule
+  });
 
   return (
     <Wrapper>
@@ -309,9 +243,13 @@ export default function Transaction({ transaction }: Props) {
             Transactions
           </Title>
           <InfiniteScroll
-            dataLength={transactions.length}
-            next={fetchTransactions}
-            hasMore={hasMoreTransactions}
+            dataLength={transactions.transactions.edges.length}
+            next={() => fetchMoreTransactions({
+              variables: {
+                cursor: transactions.transactions.edges[transactions.transactions.edges.length - 1].cursor
+              }
+            })}
+            hasMore={transactions.transactions.pageInfo.hasNextPage}
             loader={<LoadingStatus>Loading...</LoadingStatus>}
             endMessage={
               <LoadingStatus>
@@ -328,27 +266,27 @@ export default function Transaction({ transaction }: Props) {
                 <th>Block</th>
                 <th>Time</th>
               </tr>
-              {transactions.map((tx, i) => (
+              {transactions.transactions.edges.map((tx, i) => (
                 <tr key={i}>
                   <td>
                     <TransactionType>
-                      {tx.type}
+                      {getTransactionType(tx.node.tags)}
                     </TransactionType>
                   </td>
                   <td>
-                    <EntityLink address={tx.id} transaction={tx.original} idonly />
+                    <EntityLink address={tx.node.id} transaction={tx.node} idonly />
                   </td>
                   <td>
-                    {tx.action}
+                    {getTagValue("Action", tx.node.tags)}
                   </td>
                   <td>
-                    <EntityLink address={tx.owner} />
+                    <EntityLink address={getTagValue("From-Process", tx.node.tags) || tx.node.owner.address} />
                   </td>
                   <td>
-                    {(tx.block && <Link to={`#/${tx.block}`}>{tx.block}</Link>) || "Pending..."}
+                    {(tx.node.block?.height && <Link to={`#/${tx.node.block?.height}`}>{tx.node.block?.height}</Link>) || "Pending..."}
                   </td>
                   <td>
-                    {formatTimestamp(tx.time && tx.time * 1000)}
+                    {formatTimestamp(tx.node.block?.timestamp && tx.node.block.timestamp * 1000)}
                   </td>
                 </tr>
               ))}
@@ -362,9 +300,13 @@ export default function Transaction({ transaction }: Props) {
             Processes
           </Title>
           <InfiniteScroll
-            dataLength={processes.length}
-            next={fetchProcesses}
-            hasMore={hasMoreProcesses}
+            dataLength={processes.transactions.edges.length}
+            next={() => fetchMoreProcesses({
+              variables: {
+                cursor: processes.transactions.edges[processes.transactions.edges.length - 1].cursor
+              }
+            })}
+            hasMore={processes.transactions.pageInfo.hasNextPage}
             loader={<LoadingStatus>Loading...</LoadingStatus>}
             endMessage={
               <LoadingStatus>
@@ -381,27 +323,27 @@ export default function Transaction({ transaction }: Props) {
                 <th>Block</th>
                 <th>Time</th>
               </tr>
-              {processes.map((process, i) => (
+              {processes.transactions.edges.map((process, i) => (
                 <tr key={i}>
                   <td></td>
                   <td>
-                    <Link to={`#/${process.id}`} style={{ textOverflow: "ellipsis", maxWidth: "17rem", overflow: "hidden", whiteSpace: "nowrap" }}>
-                      {process.name}
+                    <Link to={`#/${process.node.id}`} style={{ textOverflow: "ellipsis", maxWidth: "17rem", overflow: "hidden", whiteSpace: "nowrap" }}>
+                      {getTagValue("Name", process.node.tags) || "-"}
                     </Link>
                   </td>
                   <td>
-                    <Link to={`#/${process.id}`}>
-                      {formatAddress(process.id, 7)}
+                    <Link to={`#/${process.node.id}`}>
+                      {formatAddress(process.node.id, 7)}
                     </Link>
                   </td>
                   <td>
-                    <EntityLink address={process.owner} />
+                    <EntityLink address={getTagValue("From-Process", process.node.tags) || process.node.owner.address} />
                   </td>
                   <td>
-                    {(process.block && <Link to={`#/${process.block}`}>{process.block}</Link>) || ""}
+                    {(process.node.block?.height && <Link to={`#/${process.node.block.height}`}>{process.node.block.height}</Link>) || ""}
                   </td>
                   <td>
-                    {formatTimestamp(process.time && process.time * 1000)}
+                    {formatTimestamp(process.node.block?.timestamp && process.node.block?.timestamp * 1000)}
                   </td>
                 </tr>
               ))}
