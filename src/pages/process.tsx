@@ -744,9 +744,8 @@ export default function Process({ initTx }: Props) {
               {(schedulerURL?.host && (
                 <>
                 {schedulerURL.host}
-                  {" ("}
+                  {" / "}
                   <EntityLink address={tags.Scheduler} />
-                  {")"}
                 </>
               )) || (
                 <EntityLink address={tags.Scheduler} />

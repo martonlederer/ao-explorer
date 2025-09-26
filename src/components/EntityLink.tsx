@@ -154,7 +154,7 @@ const Tooltip = styled.span`
 const Wrapper = styled.div<{ accent?: boolean }>`
   position: relative;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: .4rem;
   color: ${props => props.accent ? "#04ff00" : "inherit"};
