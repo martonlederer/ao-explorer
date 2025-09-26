@@ -1,5 +1,5 @@
 import { Copy, ProcessID, ProcessName, ProcessTitle, Title, TokenLogo, Wrapper, Tables } from "../components/Page";
-import { createDataItemSigner, message, dryrun, result } from "@permaweb/aoconnect"
+import { createDataItemSigner, message, dryrun, result, spawn } from "@permaweb/aoconnect"
 import InfiniteScroll from "react-infinite-scroll-component";
 import { formatAddress, getTagValue } from "../utils/format";
 import { useActiveAddress, useConnection } from "@arweave-wallet-kit/react";
@@ -21,7 +21,7 @@ import { Editor, OnMount } from "@monaco-editor/react";
 import Button from "../components/Btn";
 import { MarkedContext } from "../components/MarkedProvider";
 import { GetEvalMessages, GetIncomingMessagesCount, GetOutgoingMessages, GetOutgoingMessagesCount, GetTransfersFor, TransactionNode, defaultGetOutgoingMessages } from "../queries/messages";
-import { GetSchedulerLocation, GetSpawnedBy } from "../queries/processes";
+import { GetSchedulerLocation, GetSpawnedBy, GetSpawnedByCount, defaultGetSpawnedBy } from "../queries/processes";
 import { useApolloClient, useQuery as useApolloQuery } from "@apollo/client";
 import EntityLink from "../components/EntityLink";
 import { wellKnownTokens } from "../ao/well_known";
@@ -165,44 +165,23 @@ export default function Process({ initTx }: Props) {
     [outgoingCountData]
   );
 
-  const [hasMoreSpawns, setHasMoreSpawns] = useState(true);
-  const [spawns, setSpawns] = useState<Process[]>([]);
-  const [spawnsCount, setSpawnsCount] = useState<string | undefined>();
+  const {
+    data: spawns = defaultGetSpawnedBy,
+    fetchMore: fetchMoreSpawns
+  } = useApolloQuery(GetSpawnedBy, {
+    variables: { process: id }
+  });
 
-  async function fetchSpawns() {
-    const res = await client.query({
-      query: GetSpawnedBy,
-      variables: {
-        process: id,
-        cursor: spawns[spawns.length - 1]?.cursor
-      }
-    });
-
-    setSpawnsCount(parseInt(res.data.transactions.count).toLocaleString());
-    setHasMoreSpawns(res.data.transactions.pageInfo.hasNextPage);
-    setSpawns((val) => {
-      for (const tx of res.data.transactions.edges) {
-        if (val.find((t) => t.id === tx.node.id)) continue;
-        val.push({
-          id: tx.node.id,
-          name: getTagValue("Name", tx.node.tags) || "",
-          module: getTagValue("Module", tx.node.tags) || "",
-          block: tx.node.block?.height || 0,
-          timestamp: (tx.node.block?.timestamp || 0) * 1000,
-          cursor: tx.cursor
-        });
-      }
-
-      return val;
-    });
-  }
-
-  useEffect(() => {
-    setSpawns([]);
-    setHasMoreSpawns(true);
-    setSpawnsCount(undefined);
-    fetchSpawns();
-  }, [id, gateway]);
+  const { data: spawnsCountData } = useApolloQuery(GetSpawnedByCount, {
+    variables: { process: id }
+  });
+  const spawnsCount = useMemo(
+    () => {
+      const raw = parseInt(spawnsCountData?.transactions?.count || "0");
+      return raw.toLocaleString();
+    },
+    [spawnsCountData]
+  );
 
   const [hasMoreEvals, setHasMoreEvals] = useState(true);
   const [evals, setEvals] = useState<Eval[]>([]);
@@ -1109,9 +1088,13 @@ export default function Process({ initTx }: Props) {
       )}
       {interactionsMode === "spawns" && (
         <InfiniteScroll
-          dataLength={spawns.length}
-          next={fetchSpawns}
-          hasMore={hasMoreSpawns}
+          dataLength={spawns.transactions.edges.length}
+          next={() => fetchMoreSpawns({
+            variables: {
+              cursor: spawns.transactions.edges[spawns.transactions.edges.length - 1].cursor
+            }
+          })}
+          hasMore={spawns.transactions.pageInfo.hasNextPage}
           loader={<LoadingStatus>Loading...</LoadingStatus>}
           endMessage={
             <LoadingStatus>
@@ -1128,25 +1111,25 @@ export default function Process({ initTx }: Props) {
               <th>Block</th>
               <th>Time</th>
             </tr>
-            {spawns.map((process, i) => (
+            {spawns.transactions.edges.map((process, i) => (
               <tr key={i}>
                 <td></td>
                 <td>
-                  <Link to={`#/${process.id}`}>
-                    {formatAddress(process.id)}
+                  <Link to={`#/${process.node.id}`}>
+                    {formatAddress(process.node.id)}
                   </Link>
                 </td>
                 <td>
-                  {process.name}
+                  {getTagValue("Name", process.node.tags) || ""}
                 </td>
                 <td>
-                  <EntityLink address={process.module} />
+                  <EntityLink address={getTagValue("Module", process.node.tags) || ""} />
                 </td>
                 <td>
-                  <Link to={`#/${process.block}`}>{process.block}</Link>
+                  <Link to={`#/${process.node.block?.height || 0}`}>{process.node.block?.height || 0}</Link>
                 </td>
                 <td>
-                  {formatTimestamp(process.timestamp)}
+                  {formatTimestamp((process.node.block?.timestamp || 0) * 1000)}
                 </td>
               </tr>
             ))}

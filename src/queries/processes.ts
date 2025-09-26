@@ -1,5 +1,5 @@
 import { gql, TypedDocumentNode } from "@apollo/client";
-import { Block, GetMessageType } from "./messages";
+import { Block, GetMessageType, GetTransactionsCountType } from "./messages";
 import { Tag } from "../ao/types";
 
 interface GetAllProcessesType {
@@ -155,12 +155,25 @@ export const GetSchedulerLocation: TypedDocumentNode<GetSchedulerLocationType, {
   }
 `;
 
+export const GetSpawnedByCount: TypedDocumentNode<GetTransactionsCountType, { process: string }> = gql`
+  query GetSpawnedByCount ($process: String!) {
+    transactions(
+      tags: [
+        { name: "Data-Protocol", values: ["ao"] }
+        { name: "Type", values: ["Process"] }
+        { name: "From-Process", values: [$process] }
+      ]
+    ) {
+      count
+    }
+  }
+`;
+
 export interface GetSpawnedByType {
   transactions: {
     pageInfo: {
       hasNextPage: boolean;
     };
-    count: string;
     edges: {
       node: {
         id: string;
@@ -171,6 +184,15 @@ export interface GetSpawnedByType {
     }[];
   };
 }
+
+export const defaultGetSpawnedBy: GetSpawnedByType = {
+  transactions: {
+    pageInfo: {
+      hasNextPage: true
+    },
+    edges: []
+  }
+};
 
 export const GetSpawnedBy: TypedDocumentNode<GetSpawnedByType, { process: string; cursor?: string }> = gql`
   query GetSpawnedBy ($process: String!, $cursor: String) {
@@ -186,7 +208,6 @@ export const GetSpawnedBy: TypedDocumentNode<GetSpawnedByType, { process: string
       pageInfo {
         hasNextPage
       }
-      count
       edges {
         node {
           id

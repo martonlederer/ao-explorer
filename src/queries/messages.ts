@@ -28,6 +28,12 @@ export interface TransactionNode {
   block?: Block;
 }
 
+export interface GetTransactionsCountType {
+  transactions: {
+    count: string;
+  };
+}
+
 export interface GetMessageType {
   transactions: {
     edges: {
@@ -140,13 +146,7 @@ export const GetLinkedMessages: TypedDocumentNode<GetMessageWithCountType, { pus
   }
 `;
 
-interface GetIncomingMessagesCountType {
-  transactions: {
-    count: string;
-  };
-}
-
-export const GetIncomingMessagesCount: TypedDocumentNode<GetIncomingMessagesCountType, { process: string; }> = gql`
+export const GetIncomingMessagesCount: TypedDocumentNode<GetTransactionsCountType, { process: string; }> = gql`
   query GetIncomingMessagesCount ($process: String!) {
     transactions(
       recipients: [$process]
@@ -220,7 +220,7 @@ export const defaultGetOutgoingMessages: GetOutgoingMessagesType = {
     },
     edges: []
   }
-}
+};
 
 export const GetOutgoingMessages: TypedDocumentNode<GetOutgoingMessagesType, { process: string; cursor?: string }> = gql`
   query GetOutgoingMessages ($process: String!, $cursor: String) {
@@ -254,13 +254,7 @@ export const GetOutgoingMessages: TypedDocumentNode<GetOutgoingMessagesType, { p
   }
 `;
 
-interface GetOutgoingMessagesCountType {
-  transactions: {
-    count: string;
-  };
-}
-
-export const GetOutgoingMessagesCount: TypedDocumentNode<GetOutgoingMessagesCountType, { process: string; }> = gql`
+export const GetOutgoingMessagesCount: TypedDocumentNode<GetTransactionsCountType, { process: string; }> = gql`
   query GetOutgoingMessagesCount ($process: String!) {
     transactions(
       tags: [
