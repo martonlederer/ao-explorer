@@ -33,15 +33,22 @@ const queryClient = new QueryClient();
 
 function App() {
   const gateway = useGateway();
-  const [apolloClient, setApolloClient] = useState<ApolloClient<NormalizedCacheObject> | undefined>();
+  const [apolloAoClient, setAoApolloClient] = useState<ApolloClient<NormalizedCacheObject> | undefined>();
+  const [apolloArClient, setArApolloClient] = useState<ApolloClient<NormalizedCacheObject> | undefined>();
 
   useEffect(() => {
-    setupApollo()
-      .then((client) => setApolloClient(client))
-      .catch((e) => console.log("Failed to setup Apollo Client: " + (e?.message || e)));
+    setupApollo("https://ao-search-gateway.goldsky.com/graphql")
+      .then((client) => setAoApolloClient(client))
+      .catch((e) => console.log("Failed to setup Apollo AO Client: " + (e?.message || e)));
   }, []);
 
-  if (!apolloClient) return <></>;
+  useEffect(() => {
+    setupApollo("https://arweave-search.goldsky.com/graphql")
+      .then((client) => setArApolloClient(client))
+      .catch((e) => console.log("Failed to setup Apollo Arweave Client: " + (e?.message || e)));
+  }, []);
+
+  if (!apolloAoClient || !apolloArClient) return <></>;
 
   return (
     <ArweaveWalletKit
@@ -73,39 +80,51 @@ function App() {
       }}
     >
       <QueryClientProvider client={queryClient}>
-        <ApolloProvider client={apolloClient}>
-          <CurrentTransactionProvider>
-            <MarkedProvider>
-              <>
-                <BgBlur />
-                <Router hook={useHashLocation} matcher={customMatcher}>
-                  <Nav />
-                  <Main>
-                    <Switch>
-                      <Route path="/" component={Home} />
-                      <Route path="/:id([a-zA-Z0-9_-]{43})">
-                        {(props) => <Entity id={props.id} />}
-                      </Route>
+        <CurrentTransactionProvider>
+          <MarkedProvider>
+            <>
+              <BgBlur />
+              <Router hook={useHashLocation} matcher={customMatcher}>
+                <Nav />
+                <Main>
+                  <Switch>
+                    <Route path="/">
+                      <ApolloProvider client={apolloAoClient}>
+                        <Home />
+                      </ApolloProvider>
+                    </Route>
+                    <Route path="/:id([a-zA-Z0-9_-]{43})">
+                      {(props) =>
+                        <Entity
+                          id={props.id}
+                          apolloAoClient={apolloAoClient}
+                          apolloArClient={apolloArClient}
+                        />
+                      }
+                    </Route>
                       <Route path="/:height([0-9]+)">
-                        {(props) => <Block height={props.height} />}
+                        {(props) => (
+                          <ApolloProvider client={apolloArClient}>
+                            <Block height={props.height} />
+                          </ApolloProvider>
+                        )}
                       </Route>
-                      <Route path="/message/:message">
-                        {(props) => <Redirect to={`/${props.message}`} />}
-                      </Route>
-                      <Route path="/process/:id">
-                        {(props) => <Redirect to={`/${props.id}`} />}
-                      </Route>
-                      <Route path="/process/:id/:message">
-                        {(props) => <Redirect to={`/${props.message}`} />}
-                      </Route>
-                    </Switch>
-                  </Main>
-                  <Footer />
-                </Router>
-              </>
-            </MarkedProvider>
-          </CurrentTransactionProvider>
-        </ApolloProvider>
+                    <Route path="/message/:message">
+                      {(props) => <Redirect to={`/${props.message}`} />}
+                    </Route>
+                    <Route path="/process/:id">
+                      {(props) => <Redirect to={`/${props.id}`} />}
+                    </Route>
+                    <Route path="/process/:id/:message">
+                      {(props) => <Redirect to={`/${props.message}`} />}
+                    </Route>
+                  </Switch>
+                </Main>
+                <Footer />
+              </Router>
+            </>
+          </MarkedProvider>
+        </CurrentTransactionProvider>
       </QueryClientProvider>
     </ArweaveWalletKit>
   );

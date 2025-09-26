@@ -1,7 +1,7 @@
 import { persistCache, LocalStorageWrapper } from "apollo3-cache-persist";
 import { ApolloClient, InMemoryCache } from "@apollo/client";
 
-export async function setupApollo(persist = false) {
+export async function setupApollo(apiURI: string, persist = false) {
   const cache = new InMemoryCache({
     typePolicies: {
       Query: {
@@ -33,7 +33,7 @@ export async function setupApollo(persist = false) {
   }
 
   const client = new ApolloClient({
-    uri: "https://ao-search-gateway.goldsky.com/graphql",
+    uri: apiURI,
     cache
   });
 
