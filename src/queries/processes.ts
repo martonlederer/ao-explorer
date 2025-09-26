@@ -134,7 +134,7 @@ interface GetSchedulerLocationType {
 }
 
 export const GetSchedulerLocation: TypedDocumentNode<GetSchedulerLocationType, { id: string }> = gql`
-  query GetSchedulerLocation ($id: ID!) {
+  query GetSchedulerLocation ($id: String!) {
     transactions(
       owners: [$id]
       tags: [

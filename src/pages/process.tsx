@@ -165,38 +165,6 @@ export default function Process({ initTx }: Props) {
     [outgoingCountData]
   );
 
-  // async function fetchOutgoing() {
-  //   const res = await client.query({
-  //     query: GetOutgoingMessages,
-  //     variables: {
-  //       process: id,
-  //       cursor: outgoing[outgoing.length - 1]?.cursor
-  //     }
-  //   });
-
-  //   setOutgoingCount(parseInt(res.data.transactions.count).toLocaleString());
-  //   setHasMoreOutgoing(res.data.transactions.pageInfo.hasNextPage);
-  //   setOutgoing((val) => {
-  //     // manually filter out duplicate transactions
-  //     // for some reason, the ar.io nodes return the
-  //     // same transaction multiple times for certain
-  //     // queries
-  //     for (const tx of res.data.transactions.edges) {
-  //       if (val.find((t) => t.id === tx.node.id)) continue;
-  //       val.push({
-  //         id: tx.node.id,
-  //         target: tx.node.recipient,
-  //         action: tx.node.tags.find((tag) => tag.name === "Action")?.value || "-",
-  //         block: tx.node.block?.height || 0,
-  //         time: tx.node.block?.timestamp,
-  //         cursor: tx.cursor
-  //       });
-  //     }
-
-  //     return val;
-  //   });
-  // }
-
   const [hasMoreSpawns, setHasMoreSpawns] = useState(true);
   const [spawns, setSpawns] = useState<Process[]>([]);
   const [spawnsCount, setSpawnsCount] = useState<string | undefined>();
