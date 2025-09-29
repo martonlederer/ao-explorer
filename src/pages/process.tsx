@@ -208,7 +208,7 @@ export default function Process({ initTx }: Props) {
       }
     });
 
-    setTransfersCount(parseInt(res.data.transactions.count).toLocaleString());
+    // TODO: transfers count
     setHasMoreTransfers(res.data.transactions.pageInfo.hasNextPage);
     setTransfers((val) => {
       for (const tx of res.data.transactions.edges) {
@@ -220,7 +220,7 @@ export default function Process({ initTx }: Props) {
         val.push({
           id: tx.node.id,
           dir,
-          from: getTagValue("Sender", tx.node.tags) || tx.node.owner.address,
+          from: getTagValue("Sender", tx.node.tags) || tx.node.recipient,
           to: getTagValue("Recipient", tx.node.tags) || tx.node.recipient,
           quantity: getTagValue("Quantity", tx.node.tags) || "0",
           token,

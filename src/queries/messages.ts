@@ -270,7 +270,6 @@ interface GetTransfersForType {
     pageInfo: {
       hasNextPage: boolean;
     };
-    count: string;
     edges: {
       node: TransactionNode;
       cursor: string;
@@ -293,7 +292,6 @@ export const GetTransfersFor: TypedDocumentNode<GetTransfersForType, { process: 
       pageInfo {
         hasNextPage
       }
-      count
       edges {
         node {
           id
